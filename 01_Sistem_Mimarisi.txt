@@ -1,0 +1,32 @@
+# EasyREG: Sistem Mimarisi
+
+EasyREG, modern bir web uygulaması mimarisi olan İstemci-Sunucu (Client-Server) modelini temel alır. Sistem üç ana bileşenden oluşur:
+
+**1. Frontend (İstemci):**
+*   **Teknoloji:** React.js
+*   **Sorumlulukları:**
+    *   Kullanıcının etkileşimde bulunduğu arayüzü (UI) sunar.
+    *   Kullanıcıdan analiz edilecek metni alır.
+    *   Metni işlenmek üzere Backend'e bir API isteği ile gönderir.
+    *   Backend'den gelen işlenmiş ve etiketlenmiş veriyi alarak kullanıcıya interaktif bir seçim listesi (örneğin, checkbox'lar) olarak sunar.
+    *   Kullanıcının yaptığı seçimlere göre nihai regex desenini dinamik olarak birleştirir ve ekranda gösterir.
+
+**2. Backend (Sunucu):**
+*   **Teknoloji:** Python (FastAPI)
+*   **Sorumlulukları:**
+    *   Frontend için `/api/analyze` gibi bir API endpoint'i sağlar.
+    *   Gelen metni, analiz ve etiketleme için harici bir yapay zeka servisine (Gemini API) gönderir.
+    *   Yapay zekadan gelen standart etiketleri (örn: `IP_ADRESI`) alır.
+    *   Bu etiketleri, kendi içinde barındırdığı güvenilir **Regex Kütüphanesi** ile eşleştirerek her etikete karşılık gelen doğru regex desenini bulur.
+    *   Etiket, değer ve regex desenini içeren zenginleştirilmiş JSON verisini Frontend'e geri döndürür.
+    *   API anahtarları gibi hassas bilgileri güvenli bir şekilde yönetir.
+
+**3. Yapay Zeka Servisi (Harici):**
+*   **Teknoloji:** Google Gemini API
+*   **Sorumlulukları:**
+    *   Backend'den gelen metni anlamsal olarak analiz eder.
+    *   Metin içindeki tanınabilir varlıkları (entities) standart etiketlerle işaretleyip yapısal bir JSON formatında döndürür.
+
+**Veri Akışı:**
+
+Kullanıcı -> Frontend -> Backend -> Gemini API -> Backend (Regex Kütüphanesi ile zenginleştirme) -> Frontend -> Kullanıcı

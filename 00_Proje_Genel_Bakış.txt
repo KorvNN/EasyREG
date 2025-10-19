@@ -1,0 +1,15 @@
+# EasyREG Projesi: Genel Bakış ve Amaç
+
+**Proje Adı:** EasyREG
+
+**Amaç:** Kullanıcıların, özellikle log dosyaları gibi karmaşık metinler için, regular expression (regex) desenlerini manuel olarak yazma ihtiyacını ortadan kaldırmaktır. EasyREG, yapay zeka destekli bir analizle metin içerisindeki anlamlı parçaları tanır ve kullanıcıya bu parçalardan hangilerini yakalamak istediğini seçme imkanı sunar. Sonuç olarak, güvenilir ve hatasız bir regex deseni otomatik olarak üretilir.
+
+**Temel Felsefe: Hibrit Yaklaşım**
+
+Proje, zeka ve güvenilirliği birleştiren bir hibrit model üzerine kuruludur:
+
+1.  **Yapay Zeka (Anlama ve Etiketleme):** Gemini gibi bir Büyük Dil Modeli (LLM), kullanıcı tarafından sağlanan metni analiz eder. Metin içindeki IP adresi, tarih, log seviyesi, URL gibi standart bileşenleri tanır ve bunları `IP_ADRESI`, `TARIH` gibi standart etiketlerle işaretler. Bu aşamada LLM, kesinlikle regex üretmez, sadece metni "anlamlandırır".
+
+2.  **Uygulama Kodu (Doğrulama ve Üretim):** Backend'de bulunan, bizim tarafımızdan yazılmış ve test edilmiş bir "Regex Kütüphanesi" bulunur. Uygulama, LLM'den gelen etiketleri bu kütüphanedeki %100 güvenilir ve optimize edilmiş regex desenleriyle eşleştirir. Bu sayede üretilen nihai regex'in doğruluğu ve performansı garanti altına alınır.
+
+Bu yaklaşım, yapay zekanın esnek anlama yeteneği ile programatik kodun kesinliğini ve güvenilirliğini bir araya getirir.

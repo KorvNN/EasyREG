@@ -1,0 +1,1 @@
+#EasyREG is a web application that simplifies creating regular expressions. It uses AI to analyze your text, automatically identifies key components (like IP addresses, dates, and URLs), and helps you build accurate and  reliable patterns without the guesswork.
