@@ -1,6 +1,6 @@
 # EasyREG
 
-EasyREG, örnek metinlerden düzenli ifade (regex) üreten ve ürettiği ifadeleri
+EasyREG, örnek metinlerden regex üreten ve ürettiği ifadeleri
 otomatik olarak test eden açık kaynaklı bir araçtır.
 
 Eşleşmesi gereken örnekleri girersiniz. İsterseniz eşleşmemesi gereken örnekleri
@@ -68,47 +68,15 @@ Bu örnek için önerilen JavaScript çıktısı:
 | `--mode search` | Metin içinde eşleşen bir bölüm arar. |
 | `--compact` | JSON çıktısını tek satır olarak verir. |
 
-Komut yardımını görüntülemek için:
-
-```powershell
-cargo run -p easyreg-cli -- infer --help
-```
 
 ## Proje yapısı
 
 | Paket | Görevi |
 | --- | --- |
 | `easyreg-core` | Temel veri modelleri ve `PatternSpec` |
-| `easyreg-detectors` | Alan türü tespiti |
+| `easyreg-detectors` | Alan tür tespiti |
 | `easyreg-inference` | Örneklerden yapı çıkarımı |
 | `easyreg-dialects` | Regex dillerine çeviri |
 | `easyreg-validation` | Eşleşme ve doğrulama |
 | `easyreg-engine` | Analiz akışı, puanlama ve öneri |
-| `easyreg-cli` | Komut satırı uygulaması |
-
-## Geliştirme
-
-Tüm testleri çalıştırmak için:
-
-```powershell
-cargo test --workspace
-```
-
-Kod kalitesi kontrolü için:
-
-```powershell
-cargo clippy --workspace --all-targets -- -D warnings
-```
-
-## Yol haritası
-
-- Dosyadan toplu örnek okuma ve benzer formatları kümeleme
-- Web arayüzü ve HTTP API
-- Daha fazla alan türü ve regex dili
-- Alanları arayüzden adlandırma ve düzenleme
-- Farklı araçlar için dışa aktarma seçenekleri
-
-## Durum
-
-Proje aktif geliştirme aşamasındadır. Mevcut sürüm, örneklerden regex üretme
-motorunu ve komut satırı arayüzünü içerir.
+| `easyreg-cli` | CLI uygulaması |
