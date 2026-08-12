@@ -1,0 +1,15 @@
+[package]
+name = "easyreg-validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+easyreg-core = { path = "../easyreg-core" }
+easyreg-dialects = { path = "../easyreg-dialects" }
+regex.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

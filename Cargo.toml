@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+    "apps/easyreg-cli",
+    "crates/easyreg-core",
+    "crates/easyreg-detectors",
+    "crates/easyreg-dialects",
+    "crates/easyreg-engine",
+    "crates/easyreg-inference",
+    "crates/easyreg-validation",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["EasyREG contributors"]
+
+[workspace.dependencies]
+clap = { version = "4.5", features = ["derive"] }
+regex = "1.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"

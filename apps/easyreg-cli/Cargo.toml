@@ -1,0 +1,19 @@
+[package]
+name = "easyreg-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "easyreg"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+easyreg-core = { path = "../../crates/easyreg-core" }
+easyreg-engine = { path = "../../crates/easyreg-engine" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

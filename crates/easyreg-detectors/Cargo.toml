@@ -1,0 +1,12 @@
+[package]
+name = "easyreg-detectors"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+easyreg-core = { path = "../easyreg-core" }
+
+[lints]
+workspace = true
