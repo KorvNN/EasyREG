@@ -7,7 +7,7 @@ use easyreg_core::{
     ValidationReport,
 };
 use easyreg_dialects::{RenderError, render};
-use easyreg_inference::{InferenceError, infer};
+use easyreg_inference::{InferenceError, InferredCandidate, infer, infer_exact};
 use easyreg_validation::{ValidationError, validate};
 use thiserror::Error;
 
@@ -32,25 +32,20 @@ pub fn analyze(request: &AnalyzeRequest) -> Result<AnalysisResult, AnalysisError
     let mut candidates = Vec::with_capacity(inferred.len());
 
     for candidate in inferred {
-        let validation = validate(
-            &candidate.spec,
-            &request.positive_examples,
-            &request.negative_examples,
-        )?;
-        let renderings = [Dialect::JavaScript, Dialect::Python, Dialect::Pcre2]
-            .into_iter()
-            .map(|dialect| render(&candidate.spec, dialect).map(|pattern| (dialect, pattern)))
-            .collect::<Result<BTreeMap<_, _>, _>>()?;
-        let score = score(candidate.strategy, &validation, candidate.spec.root.node_count());
+        candidates.push(analyze_candidate(candidate, request)?);
+    }
 
-        candidates.push(AnalyzedCandidate {
-            strategy: candidate.strategy,
-            spec: candidate.spec,
-            renderings,
-            validation,
-            score,
-            notes: candidate.notes,
-        });
+    if let Some(strict_index) = candidates
+        .iter()
+        .position(|candidate| candidate.strategy == GeneralizationStrategy::Strict)
+        && candidates[strict_index].validation.negative_rejection < 1.0
+    {
+        let exact = analyze_candidate(infer_exact(request)?, request)?;
+        if exact.validation.negative_rejection
+            > candidates[strict_index].validation.negative_rejection
+        {
+            candidates[strict_index] = exact;
+        }
     }
 
     let recommended_strategy = candidates
@@ -63,6 +58,35 @@ pub fn analyze(request: &AnalyzeRequest) -> Result<AnalysisResult, AnalysisError
     Ok(AnalysisResult {
         candidates,
         recommended_strategy,
+    })
+}
+
+fn analyze_candidate(
+    candidate: InferredCandidate,
+    request: &AnalyzeRequest,
+) -> Result<AnalyzedCandidate, AnalysisError> {
+    let validation = validate(
+        &candidate.spec,
+        &request.positive_examples,
+        &request.negative_examples,
+    )?;
+    let renderings = [Dialect::JavaScript, Dialect::Python, Dialect::Pcre2]
+        .into_iter()
+        .map(|dialect| render(&candidate.spec, dialect).map(|pattern| (dialect, pattern)))
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
+    let score = score(
+        candidate.strategy,
+        &validation,
+        candidate.spec.root.node_count(),
+    );
+
+    Ok(AnalyzedCandidate {
+        strategy: candidate.strategy,
+        spec: candidate.spec,
+        renderings,
+        validation,
+        score,
+        notes: candidate.notes,
     })
 }
 
@@ -89,7 +113,7 @@ fn score(
 mod tests {
     use std::{fs, path::PathBuf};
 
-    use easyreg_core::MatchMode;
+    use easyreg_core::{MatchMode, NoteCode, PatternNode};
     use serde::Deserialize;
 
     use super::*;
@@ -102,8 +126,8 @@ mod tests {
 
     #[test]
     fn passes_the_invoice_id_golden_case() {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/corpus/invoice_ids.json");
+        let path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/invoice_ids.json");
         let contents = fs::read_to_string(path).expect("golden case should be readable");
         let case: GoldenCase =
             serde_json::from_str(&contents).expect("golden case should be valid JSON");
@@ -121,7 +145,10 @@ mod tests {
             balanced.renderings[&Dialect::JavaScript],
             case.expected_balanced_javascript
         );
-        assert_eq!(result.recommended_strategy, GeneralizationStrategy::Balanced);
+        assert_eq!(
+            result.recommended_strategy,
+            GeneralizationStrategy::Balanced
+        );
     }
 
     #[test]
@@ -134,5 +161,72 @@ mod tests {
         .expect_err("an empty request should fail");
 
         assert!(error.to_string().contains("positive example"));
+    }
+
+    #[test]
+    fn rejects_impossible_iso_calendar_dates() {
+        let result = analyze(&AnalyzeRequest {
+            positive_examples: vec!["2024-02-29".to_owned(), "2026-08-12".to_owned()],
+            negative_examples: vec![
+                "2023-02-29".to_owned(),
+                "1900-02-29".to_owned(),
+                "2026-04-31".to_owned(),
+            ],
+            match_mode: MatchMode::Full,
+        })
+        .expect("date analysis should succeed");
+
+        assert!(result.candidates.iter().all(|candidate| {
+            (candidate.validation.positive_coverage - 1.0).abs() < f64::EPSILON
+                && (candidate.validation.negative_rejection - 1.0).abs() < f64::EPSILON
+        }));
+    }
+
+    #[test]
+    fn replaces_a_broad_strict_candidate_with_an_exact_negative_aware_fallback() {
+        let result = analyze(&AnalyzeRequest {
+            positive_examples: vec!["AB12".to_owned(), "CD34".to_owned()],
+            negative_examples: vec!["EF56".to_owned()],
+            match_mode: MatchMode::Full,
+        })
+        .expect("analysis should succeed");
+        let strict = result
+            .candidates
+            .iter()
+            .find(|candidate| candidate.strategy == GeneralizationStrategy::Strict)
+            .expect("strict candidate should exist");
+
+        assert!(matches!(strict.spec.root, PatternNode::Alternation { .. }));
+        assert!((strict.validation.negative_rejection - 1.0).abs() < f64::EPSILON);
+        assert!(
+            strict
+                .notes
+                .iter()
+                .any(|note| note.code == NoteCode::ExactAlternationFallback)
+        );
+        assert_eq!(result.recommended_strategy, GeneralizationStrategy::Strict);
+    }
+
+    #[test]
+    fn retains_the_structured_strict_candidate_when_exact_matching_cannot_improve_rejection() {
+        let result = analyze(&AnalyzeRequest {
+            positive_examples: vec!["AB12".to_owned(), "CD34".to_owned()],
+            negative_examples: vec!["AB12".to_owned()],
+            match_mode: MatchMode::Full,
+        })
+        .expect("analysis should succeed");
+        let strict = result
+            .candidates
+            .iter()
+            .find(|candidate| candidate.strategy == GeneralizationStrategy::Strict)
+            .expect("strict candidate should exist");
+
+        assert!(matches!(strict.spec.root, PatternNode::Field { .. }));
+        assert!(
+            strict
+                .notes
+                .iter()
+                .all(|note| note.code != NoteCode::ExactAlternationFallback)
+        );
     }
 }

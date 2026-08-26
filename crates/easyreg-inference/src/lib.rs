@@ -71,6 +71,34 @@ pub fn infer(request: &AnalyzeRequest) -> Result<Vec<InferredCandidate>, Inferen
     Ok(candidates)
 }
 
+/// Builds a strict candidate that matches only the observed positive examples.
+///
+/// This candidate is intended as a fallback when a structurally inferred
+/// expression also accepts supplied negative examples.
+///
+/// # Errors
+///
+/// Returns [`InferenceError::InvalidInput`] when the request has no usable
+/// positive examples.
+pub fn infer_exact(request: &AnalyzeRequest) -> Result<InferredCandidate, InferenceError> {
+    request.validate()?;
+
+    Ok(build_exact_candidate(request))
+}
+
+fn build_exact_candidate(request: &AnalyzeRequest) -> InferredCandidate {
+    InferredCandidate {
+        strategy: GeneralizationStrategy::Strict,
+        spec: PatternSpec::new(
+            request.match_mode,
+            PatternNode::Alternation {
+                branches: deduplicated_literals(&request.positive_examples),
+            },
+        ),
+        notes: vec![note(NoteCode::ExactAlternationFallback, None, [])],
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TokenKind {
     Digits,
@@ -235,14 +263,18 @@ fn build_from_segments(
                 let field_id = format!("field_{field_number}");
                 let references = values.iter().map(String::as_str).collect::<Vec<_>>();
                 let kind = registry.classify_all(&references);
-                let observed_min = values.iter().map(|value| value.chars().count()).min().unwrap_or(0);
-                let observed_max = values.iter().map(|value| value.chars().count()).max().unwrap_or(0);
-                let (min_length, max_length) = length_constraints(
-                    kind,
-                    observed_min,
-                    observed_max,
-                    strategy,
-                );
+                let observed_min = values
+                    .iter()
+                    .map(|value| value.chars().count())
+                    .min()
+                    .unwrap_or(0);
+                let observed_max = values
+                    .iter()
+                    .map(|value| value.chars().count())
+                    .max()
+                    .unwrap_or(0);
+                let (min_length, max_length) =
+                    length_constraints(kind, observed_min, observed_max, strategy);
 
                 notes.push(note(
                     NoteCode::FieldClassified,
@@ -261,7 +293,10 @@ fn build_from_segments(
                     notes.push(note(
                         NoteCode::FlexibleLength,
                         Some(&field_id),
-                        [("min", min_length.to_string()), ("max", "unbounded".to_owned())],
+                        [
+                            ("min", min_length.to_string()),
+                            ("max", "unbounded".to_owned()),
+                        ],
                     ));
                 }
 
@@ -310,25 +345,14 @@ fn build_fallback_candidates(
     request: &AnalyzeRequest,
     registry: &DetectorRegistry,
 ) -> Vec<InferredCandidate> {
-    let strict = InferredCandidate {
-        strategy: GeneralizationStrategy::Strict,
-        spec: PatternSpec::new(
-            request.match_mode,
-            PatternNode::Alternation {
-                branches: deduplicated_literals(&request.positive_examples),
-            },
-        ),
-        notes: vec![note(NoteCode::ExactAlternationFallback, None, [])],
-    };
+    let strict = build_exact_candidate(request);
 
     let prefix = longest_common_prefix(&request.positive_examples);
     let suffix = longest_common_suffix(&request.positive_examples, prefix.chars().count());
     let middle_values = request
         .positive_examples
         .iter()
-        .map(|example| {
-            example[prefix.len()..example.len().saturating_sub(suffix.len())].to_owned()
-        })
+        .map(|example| example[prefix.len()..example.len().saturating_sub(suffix.len())].to_owned())
         .collect::<Vec<_>>();
 
     let fallback_segments = [
