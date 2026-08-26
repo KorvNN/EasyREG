@@ -5,7 +5,11 @@ use easyreg_core::{AnalyzeRequest, MatchMode};
 use easyreg_engine::analyze;
 
 #[derive(Debug, Parser)]
-#[command(name = "easyreg", version, about = "Example-driven regular expression inference")]
+#[command(
+    name = "easyreg",
+    version,
+    about = "Example-driven regular expression inference"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

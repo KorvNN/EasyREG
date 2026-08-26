@@ -87,12 +87,9 @@ impl Detector for UuidDetector {
         let groups = value.split('-').collect::<Vec<_>>();
 
         groups.len() == GROUP_LENGTHS.len()
-            && groups
-                .iter()
-                .zip(GROUP_LENGTHS)
-                .all(|(group, expected)| {
-                    group.len() == expected && group.bytes().all(|byte| byte.is_ascii_hexdigit())
-                })
+            && groups.iter().zip(GROUP_LENGTHS).all(|(group, expected)| {
+                group.len() == expected && group.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
     }
 }
 
@@ -215,7 +212,8 @@ impl Detector for DecimalDetector {
 
     fn matches(&self, value: &str) -> bool {
         let mut parts = value.split('.');
-        let (Some(integer), Some(fraction), None) = (parts.next(), parts.next(), parts.next()) else {
+        let (Some(integer), Some(fraction), None) = (parts.next(), parts.next(), parts.next())
+        else {
             return false;
         };
 

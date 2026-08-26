@@ -39,7 +39,10 @@ pub fn validate(
         .collect::<Vec<_>>();
 
     let positive_coverage = ratio(
-        positive_results.iter().filter(|result| result.matched).count(),
+        positive_results
+            .iter()
+            .filter(|result| result.matched)
+            .count(),
         positive_results.len(),
         0.0,
     );

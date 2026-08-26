@@ -20,9 +20,7 @@ pub enum GeneralizationStrategy {
 }
 
 /// A target regular-expression dialect.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Dialect {
     JavaScript,
@@ -58,12 +56,7 @@ impl FieldKind {
     pub const fn has_intrinsic_shape(self) -> bool {
         matches!(
             self,
-            Self::Ipv4
-                | Self::Ipv6
-                | Self::Uuid
-                | Self::Email
-                | Self::Url
-                | Self::DateIso
+            Self::Ipv4 | Self::Ipv6 | Self::Uuid | Self::Email | Self::Url | Self::DateIso
         )
     }
 
