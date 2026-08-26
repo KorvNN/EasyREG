@@ -1,0 +1,20 @@
+[package]
+name = "easyreg-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "easyreg-server"
+path = "src/main.rs"
+
+[dependencies]
+axum.workspace = true
+easyreg-core = { path = "../../crates/easyreg-core" }
+easyreg-engine = { path = "../../crates/easyreg-engine" }
+serde.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true
