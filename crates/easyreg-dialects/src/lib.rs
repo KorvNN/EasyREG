@@ -93,9 +93,8 @@ impl RenderState {
             }
             PatternNode::Repeat { node, min, max } => {
                 let body = self.render_node(node)?;
-                let quantifier = quantifier(*min, *max).map_err(|max| {
-                    RenderError::InvalidRepeatRange { min: *min, max }
-                })?;
+                let quantifier = quantifier(*min, *max)
+                    .map_err(|max| RenderError::InvalidRepeatRange { min: *min, max })?;
                 Ok(format!("(?:{body}){quantifier}"))
             }
         }
@@ -133,14 +132,21 @@ fn field_body(field: &FieldSpec) -> Result<String, RenderError> {
         ),
         // This portable form deliberately avoids lookaround and backreferences.
         FieldKind::Ipv6 => Some(r"(?:[0-9A-Fa-f]{0,4}:){1,7}[0-9A-Fa-f]{0,4}"),
-        FieldKind::Uuid => Some(
-            r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}",
-        ),
+        FieldKind::Uuid => {
+            Some(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}")
+        }
         FieldKind::Email => Some(r"[^@\s]+@[^@\s]+\.[^@\s]+"),
         FieldKind::Url => Some(r"https?://[^\s]+"),
-        FieldKind::DateIso => {
-            Some(r"[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])")
-        }
+        FieldKind::DateIso => Some(concat!(
+            r"(?:[0-9]{4}-(?:",
+            r"(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|",
+            r"(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|",
+            r"02-(?:0[1-9]|1[0-9]|2[0-8])",
+            r")|",
+            r"(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|",
+            r"(?:[02468][048]|[13579][26])00)-02-29",
+            r")",
+        )),
         FieldKind::Decimal => Some(r"[0-9]+\.[0-9]+"),
         FieldKind::Hexadecimal => Some(r"0[xX][0-9A-Fa-f]+"),
         _ => None,
