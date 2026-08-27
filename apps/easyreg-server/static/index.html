@@ -45,6 +45,23 @@
             </div>
 
             <form id="analyze-form" novalidate>
+              <label class="upload-box" id="upload-box" for="log-file">
+                <input
+                  id="log-file"
+                  name="log_file"
+                  type="file"
+                  accept=".log,.txt,.json,.jsonl,.ndjson,text/plain,application/json"
+                >
+                <span class="upload-icon" aria-hidden="true">↑</span>
+                <span class="upload-copy">
+                  <strong>Log dosyası seçin</strong>
+                  <small>veya buraya sürükleyin · UTF-8 metin dosyası</small>
+                </span>
+              </label>
+              <p class="upload-status" id="upload-status" role="status" hidden></p>
+
+              <div class="input-divider"><span>veya satırları yapıştırın</span></div>
+
               <label class="field-label" for="positive-examples">
                 <span>İşlenecek loglar <strong>Gerekli</strong></span>
                 <span class="line-count" id="positive-count">0 satır</span>
