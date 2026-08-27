@@ -577,8 +577,46 @@ mod tests {
     #[test]
     fn embeds_the_web_application() {
         assert!(INDEX_HTML.contains("EasyREG"));
+        assert!(INDEX_HTML.contains("type=\"file\""));
+        assert!(INDEX_HTML.contains("id=\"upload-box\""));
+        assert!(INDEX_HTML.contains("rel=\"icon\" href=\"/easyreg-icon.svg\""));
+        assert!(INDEX_HTML.contains("class=\"brand-mark\" src=\"/easyreg-icon.svg\""));
+        assert!(ICON_SVG.contains("<title>EasyREG</title>"));
         assert!(APP_CSS.contains(":root"));
         assert!(APP_JS.contains("/api/analyze"));
+        assert!(APP_JS.contains("file.stream().getReader()"));
+        assert!(APP_JS.contains("MAX_IMPORTED_LINES"));
+        assert!(APP_JS.contains("new TextDecoder(\"utf-8\", { fatal: true })"));
+        assert!(APP_JS.contains("matchMode === \"search\" ? \"search\" : \"fullmatch\""));
+    }
+
+    #[test]
+    fn web_copy_does_not_expose_demo_or_internal_engine_vocabulary() {
+        for unwanted in [
+            "pattern-orbit",
+            "Log parser stüdyosu",
+            "Yerel motor hazır",
+            "Regex ve parser üretimi",
+            "Log biçimini çıkarın",
+            "Veri dışarı gönderilmez",
+            "<footer>",
+            "class=\"hero\"",
+            "Motor notları",
+            "Pozitif kapsam",
+            "Negatif ret",
+            "id=\"result-status\"",
+        ] {
+            assert!(
+                !INDEX_HTML.contains(unwanted),
+                "web page still exposes {unwanted:?}"
+            );
+        }
+        for unwanted in ["Exact fallback", "Strict", "Balanced", "Flexible"] {
+            assert!(
+                !APP_JS.contains(unwanted),
+                "web script still exposes {unwanted:?}"
+            );
+        }
     }
 
     #[test]
