@@ -13,7 +13,7 @@ use easyreg_semantics::{FieldObservation, SemanticField, infer as infer_semantic
 use serde::Serialize;
 
 const DEFAULT_ADDRESS: &str = "127.0.0.1:3000";
-const MAX_REQUEST_BYTES: usize = 256 * 1024;
+const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
 const INDEX_HTML: &str = include_str!("../static/index.html");
 const APP_CSS: &str = include_str!("../static/app.css");
 const APP_JS: &str = include_str!("../static/app.js");
