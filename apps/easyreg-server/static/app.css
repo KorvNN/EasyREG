@@ -462,7 +462,7 @@ textarea::placeholder {
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   margin-bottom: 20px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -493,7 +493,7 @@ textarea::placeholder {
 
 .metric strong {
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.32rem;
+  font-size: 1.12rem;
   font-weight: 500;
 }
 
