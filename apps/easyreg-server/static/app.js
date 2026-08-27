@@ -4,16 +4,16 @@ const elements = {
   negatives: document.querySelector("#negative-examples"),
   positiveCount: document.querySelector("#positive-count"),
   negativeCount: document.querySelector("#negative-count"),
+  logFile: document.querySelector("#log-file"),
+  uploadBox: document.querySelector("#upload-box"),
+  uploadStatus: document.querySelector("#upload-status"),
   analyzeButton: document.querySelector("#analyze-button"),
   formError: document.querySelector("#form-error"),
-  resultStatus: document.querySelector("#result-status"),
-  engineStatusText: document.querySelector("#engine-status-text"),
   emptyState: document.querySelector("#empty-state"),
   resultView: document.querySelector("#result-view"),
   candidateTabs: document.querySelector("#candidate-tabs"),
   dialectTabs: document.querySelector("#dialect-tabs"),
   outputTabs: document.querySelector("#output-tabs"),
-  score: document.querySelector("#score-metric"),
   coverage: document.querySelector("#coverage-metric"),
   rejection: document.querySelector("#rejection-metric"),
   regex: document.querySelector("#regex-output"),
@@ -26,16 +26,58 @@ const elements = {
   noteList: document.querySelector("#note-list"),
 };
 
-const labels = {
-  strict: "Strict",
-  balanced: "Balanced",
-  flexible: "Flexible",
-  field_classified: "Alan sınıflandırıldı",
-  observed_length_range: "Uzunluk aralığı gözlendi",
-  flexible_length: "Esnek uzunluk kullanıldı",
-  exact_alternation_fallback: "Exact fallback kullanıldı",
-  common_affix_fallback: "Ortak başlangıç/bitiş kullanıldı",
-  single_example_low_confidence: "Tek örnek — düşük güven",
+const MAX_IMPORTED_LINES = 240;
+const MAX_SAMPLES_PER_SHAPE = 8;
+const MAX_IMPORTED_LINE_BYTES = 32 * 1024;
+const MAX_IMPORTED_SAMPLE_BYTES = 768 * 1024;
+const MAX_REQUEST_BYTES = 1536 * 1024;
+
+const strategyLabels = {
+  strict: "Kesin",
+  balanced: "Dengeli",
+  flexible: "Esnek",
+};
+
+const strategyDescriptions = {
+  strict: "Yalnızca gözlenen biçime en yakın desen",
+  balanced: "Gözlenen farkları kontrollü biçimde genelleştirir",
+  flexible: "Yeni değer aralıklarına daha açık desen",
+};
+
+const noteTitles = {
+  field_classified: "Alan türü belirlendi",
+  observed_length_range: "Uzunluk sınırı belirlendi",
+  flexible_length: "Değişken uzunluk kullanıldı",
+  exact_alternation_fallback: "Desen örneklerle sınırlandı",
+  common_affix_fallback: "Ortak bölümler korundu",
+  single_example_low_confidence: "Daha fazla satır gerekli",
+};
+
+const confidenceLabels = {
+  high: "Yüksek güven",
+  medium: "Orta güven",
+  low: "Düşük güven",
+};
+
+const kindLabels = {
+  ipv4: "IPv4 adresi",
+  ipv6: "IPv6 adresi",
+  uuid: "UUID",
+  email: "E-posta adresi",
+  url: "URL",
+  path: "Yol",
+  date_iso: "ISO tarihi",
+  time: "Saat",
+  integer: "Tam sayı",
+  decimal: "Ondalık sayı",
+  hexadecimal: "Onaltılık değer",
+  uppercase: "Büyük harfli metin",
+  lowercase: "Küçük harfli metin",
+  alphabetic: "Harflerden oluşan metin",
+  alphanumeric: "Harf ve rakamlardan oluşan metin",
+  whitespace: "Boşluk",
+  non_whitespace: "Boşluksuz metin",
+  text: "Metin",
 };
 
 const state = {
@@ -49,12 +91,170 @@ function parseLines(value) {
   return value
     .split("\n")
     .map((line) => line.replace(/\r$/, ""))
-    .filter((line) => line.length > 0);
+    .filter((line) => line.trim().length > 0);
 }
 
 function updateLineCounts() {
   elements.positiveCount.textContent = `${parseLines(elements.positives.value).length} satır`;
   elements.negativeCount.textContent = `${parseLines(elements.negatives.value).length} satır`;
+}
+
+function setUploadStatus(message) {
+  elements.uploadStatus.textContent = message;
+  elements.uploadStatus.hidden = false;
+}
+
+function lineShape(line) {
+  return line
+    .replace(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, "<uuid>")
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "<ipv4>")
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, "<date>")
+    .replace(/\b\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?\b/g, "<time>")
+    .replace(/\b0x[0-9a-f]+\b/gi, "<hex>")
+    .replace(/\b\d+(?:\.\d+)?\b/g, "<number>")
+    .replace(/"[^"\r\n]*"/g, '"<text>"')
+    .replace(/'[^'\r\n]*'/g, "'<text>'")
+    .replace(/\b[A-Za-z0-9_-]{24,}\b/g, "<token>");
+}
+
+async function sampleLogFile(file) {
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const encoder = new TextEncoder();
+  const reader = file.stream().getReader();
+  const samplesByShape = new Map();
+  let buffer = "";
+  let discardingLongLine = false;
+  let sampledBytes = 0;
+  let sampledLines = 0;
+  let scannedLines = 0;
+  let skippedLongLines = 0;
+
+  function addSample(rawLine) {
+    const line = rawLine.replace(/\r$/, "");
+    if (line.trim().length === 0) return;
+    scannedLines += 1;
+
+    const lineBytes = encoder.encode(line).byteLength;
+    if (lineBytes > MAX_IMPORTED_LINE_BYTES) {
+      skippedLongLines += 1;
+      return;
+    }
+
+    const shape = lineShape(line);
+    const existingBucket = samplesByShape.get(shape);
+    if (existingBucket?.length >= MAX_SAMPLES_PER_SHAPE) return;
+
+    if (
+      sampledLines < MAX_IMPORTED_LINES
+      && sampledBytes + lineBytes <= MAX_IMPORTED_SAMPLE_BYTES
+    ) {
+      const bucket = existingBucket ?? [];
+      bucket.push({ line, bytes: lineBytes });
+      samplesByShape.set(shape, bucket);
+      sampledLines += 1;
+      sampledBytes += lineBytes;
+      return;
+    }
+
+    if (existingBucket) return;
+
+    const donor = [...samplesByShape.entries()]
+      .filter(([, bucket]) => bucket.length > 1)
+      .sort((left, right) => right[1].length - left[1].length)[0];
+    if (!donor) return;
+
+    const removed = donor[1].at(-1);
+    if (!removed || sampledBytes - removed.bytes + lineBytes > MAX_IMPORTED_SAMPLE_BYTES) return;
+    donor[1].pop();
+    samplesByShape.set(shape, [{ line, bytes: lineBytes }]);
+    sampledBytes += lineBytes - removed.bytes;
+  }
+
+  function consumeText(text) {
+    buffer += text;
+    let newlineIndex = buffer.indexOf("\n");
+    while (newlineIndex >= 0) {
+      const line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (discardingLongLine) {
+        discardingLongLine = false;
+      } else {
+        addSample(line);
+      }
+      newlineIndex = buffer.indexOf("\n");
+    }
+
+    if (encoder.encode(buffer).byteLength > MAX_IMPORTED_LINE_BYTES) {
+      buffer = "";
+      discardingLongLine = true;
+      scannedLines += 1;
+      skippedLongLines += 1;
+    }
+  }
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value.includes(0)) {
+        throw new Error("İkili dosyalar analiz edilemez. Metin biçiminde bir log dosyası seçin.");
+      }
+      consumeText(decoder.decode(value, { stream: true }));
+    }
+    consumeText(decoder.decode());
+    if (!discardingLongLine && buffer.length > 0) addSample(buffer);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Dosya UTF-8 olarak okunamadı.");
+    }
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+
+  return {
+    lines: [...samplesByShape.values()].flat().map((sample) => sample.line),
+    scannedLines,
+    skippedLongLines,
+  };
+}
+
+async function addLogFile(file) {
+  clearError();
+  if (!file) return;
+  elements.uploadStatus.hidden = true;
+  elements.uploadStatus.textContent = "";
+  elements.logFile.value = "";
+  if (file.size === 0) {
+    showError("Seçilen dosya boş.");
+    return;
+  }
+
+  elements.uploadBox.classList.add("is-loading");
+  try {
+    const { lines, scannedLines, skippedLongLines } = await sampleLogFile(file);
+    if (lines.length === 0) {
+      throw new Error("Dosyada analiz edilecek bir log satırı bulunamadı.");
+    }
+
+    const existing = elements.positives.value.replace(/\s+$/, "");
+    elements.positives.value = existing
+      ? `${existing}\n${lines.join("\n")}`
+      : lines.join("\n");
+    updateLineCounts();
+    const wasSampled = scannedLines > lines.length;
+    const status = wasSampled
+      ? `${file.name} · ${scannedLines.toLocaleString("tr-TR")} satır tarandı · ${lines.length} temsilî satır eklendi`
+      : `${file.name} · ${lines.length} satır eklendi`;
+    const skipped = skippedLongLines > 0
+      ? ` · ${skippedLongLines.toLocaleString("tr-TR")} çok uzun satır atlandı`
+      : "";
+    setUploadStatus(`${status}${skipped}`);
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "Dosya okunamadı.");
+  } finally {
+    elements.uploadBox.classList.remove("is-loading");
+  }
 }
 
 function showError(message) {
@@ -70,9 +270,8 @@ function clearError() {
 function setLoading(loading) {
   elements.analyzeButton.disabled = loading;
   elements.analyzeButton.querySelector(".button-label").textContent = loading
-    ? "Örnekler analiz ediliyor…"
-    : "Log parser’ını üret";
-  elements.resultStatus.textContent = loading ? "Analiz ediliyor" : "Hazır";
+    ? "Loglar analiz ediliyor…"
+    : "Regex ve parser üret";
 }
 
 function formatPercent(value) {
@@ -81,6 +280,26 @@ function formatPercent(value) {
 
 function selectedCandidate() {
   return state.result?.candidates[state.candidateIndex] ?? null;
+}
+
+function validationCount(candidate) {
+  const positivePassed = candidate.validation.positive_results.filter(
+    (result) => result.matched,
+  ).length;
+  const negativePassed = candidate.validation.negative_results.filter(
+    (result) => !result.matched,
+  ).length;
+  return {
+    passed: positivePassed + negativePassed,
+    total:
+      candidate.validation.positive_results.length + candidate.validation.negative_results.length,
+  };
+}
+
+function formatValidation(results, expectedMatch) {
+  if (results.length === 0) return "Eklenmedi";
+  const passed = results.filter((result) => result.matched === expectedMatch).length;
+  return `${passed}/${results.length} · ${formatPercent(passed / results.length)}`;
 }
 
 function renderCandidateTabs() {
@@ -95,8 +314,10 @@ function renderCandidateTabs() {
     button.className = "candidate-tab";
     button.dataset.index = String(index);
     button.setAttribute("aria-selected", String(index === state.candidateIndex));
-    button.append(labels[candidate.strategy] ?? candidate.strategy);
-    detail.textContent = recommended ? "Önerilen" : `${Math.round(candidate.score * 100)} puan`;
+    const validation = validationCount(candidate);
+    button.append(strategyLabels[candidate.strategy] ?? "Alternatif");
+    button.title = strategyDescriptions[candidate.strategy] ?? "";
+    detail.textContent = recommended ? "Önerilen" : `${validation.passed}/${validation.total} doğru`;
     button.append(detail);
     elements.candidateTabs.append(button);
   });
@@ -119,8 +340,9 @@ function javascriptParser(pattern) {
   return `const LOG_PATTERN = new RegExp(${JSON.stringify(pattern)});\n\nfunction parseLog(line) {\n  const match = LOG_PATTERN.exec(line);\n  return match ? { ...match.groups } : null;\n}`;
 }
 
-function pythonParser(pattern) {
-  return `import re\n\nLOG_PATTERN = re.compile(${JSON.stringify(pattern)})\n\ndef parse_log(line: str) -> dict[str, str] | None:\n    match = LOG_PATTERN.fullmatch(line)\n    return match.groupdict() if match else None`;
+function pythonParser(pattern, matchMode) {
+  const method = matchMode === "search" ? "search" : "fullmatch";
+  return `import re\n\nLOG_PATTERN = re.compile(${JSON.stringify(pattern)})\n\ndef parse_log(line: str) -> dict[str, str] | None:\n    match = LOG_PATTERN.${method}(line)\n    return match.groupdict() if match else None`;
 }
 
 function outputText(candidate) {
@@ -128,9 +350,9 @@ function outputText(candidate) {
     return javascriptParser(candidate.renderings.java_script);
   }
   if (state.output === "python_parser") {
-    return pythonParser(candidate.renderings.python);
+    return pythonParser(candidate.renderings.python, candidate.spec.match_mode);
   }
-  return candidate.renderings[state.dialect] ?? "Bu dil için çıktı yok.";
+  return candidate.renderings[state.dialect] ?? "Seçilen biçim için çıktı üretilemedi.";
 }
 
 function renderSemantics() {
@@ -138,8 +360,8 @@ function renderSemantics() {
   elements.semanticFields.replaceChildren();
 
   if (semantics.status === "complete") {
-    elements.semanticBadge.textContent = "Yerel kural motoru";
-    elements.semanticMessage.textContent = "Alan adları veri tipi, gözlenen değerler ve komşu anahtarlar kullanılarak tamamen yerel üretildi.";
+    elements.semanticBadge.textContent = "Yerel";
+    elements.semanticMessage.textContent = `${semantics.fields.length} değişken alan bulundu ve log bağlamına göre adlandırıldı.`;
     semantics.fields.forEach((field) => {
       const item = document.createElement("article");
       const header = document.createElement("div");
@@ -151,7 +373,7 @@ function renderSemantics() {
       header.className = "semantic-field-header";
       name.textContent = field.name;
       confidence.className = "confidence";
-      confidence.textContent = field.confidence;
+      confidence.textContent = confidenceLabels[field.confidence] ?? "Güven belirtilmedi";
       label.textContent = field.label;
       description.textContent = field.description;
       header.append(name, confidence);
@@ -162,10 +384,10 @@ function renderSemantics() {
   }
 
   const messages = {
-    not_applicable: "Bu adayda isimlendirilecek capture alanı bulunamadı.",
+    not_applicable: "Bu desende adlandırılacak değişken alan bulunamadı.",
   };
-  elements.semanticBadge.textContent = "Yerel kural motoru";
-  elements.semanticMessage.textContent = messages[semantics.status] ?? "Semantik bilgi bulunamadı.";
+  elements.semanticBadge.textContent = "Yerel";
+  elements.semanticMessage.textContent = messages[semantics.status] ?? "Alan bilgisi üretilemedi.";
 }
 
 function appendMatch(result, expectedMatch) {
@@ -202,21 +424,44 @@ function appendMatch(result, expectedMatch) {
   elements.matchList.append(item);
 }
 
+function displayFieldName(fieldId) {
+  const semantic = state.result?.semantics?.fields.find((field) => field.field_id === fieldId);
+  if (semantic) return semantic.name;
+  const number = fieldId?.match(/\d+$/)?.[0];
+  return number ? `Alan ${number}` : "Değişken alan";
+}
+
 function describeNote(note) {
-  const attributes = Object.entries(note.attributes ?? {})
-    .map(([key, value]) => `${key}: ${value}`)
-    .join(" · ");
-  const field = note.field_id ? `${note.field_id} · ` : "";
-  return `${field}${attributes || "Yapısal çıkarım bilgisi"}`;
+  const field = displayFieldName(note.field_id);
+  const minimum = note.attributes?.min;
+  const maximum = note.attributes?.max;
+
+  switch (note.code) {
+    case "field_classified":
+      return `${field}: ${kindLabels[note.attributes?.kind] ?? "Değişken değer"}`;
+    case "observed_length_range":
+      return minimum === maximum
+        ? `${field}: ${minimum} karakter`
+        : `${field}: ${minimum}–${maximum} karakter`;
+    case "flexible_length":
+      return `${field}: en az ${minimum} karakter, üst sınır yok`;
+    case "exact_alternation_fallback":
+      return "Eşleşmemesi gereken satırları reddetmek için yalnızca verilen satırlar kabul edilir.";
+    case "common_affix_fallback":
+      return "Satırların ortak başlangıç ve bitiş bölümleri korunur; orta bölüm değişken kabul edilir.";
+    case "single_example_low_confidence":
+      return "Tek satırdan çıkarım yapıldı. Deseni başka gerçek satırlarla doğrulayın.";
+    default:
+      return "Desenin oluşturulmasında ek bir sınır uygulandı.";
+  }
 }
 
 function renderCandidate() {
   const candidate = selectedCandidate();
   if (!candidate) return;
 
-  elements.score.textContent = `${(candidate.score * 100).toFixed(1)}`;
-  elements.coverage.textContent = formatPercent(candidate.validation.positive_coverage);
-  elements.rejection.textContent = formatPercent(candidate.validation.negative_rejection);
+  elements.coverage.textContent = formatValidation(candidate.validation.positive_results, true);
+  elements.rejection.textContent = formatValidation(candidate.validation.negative_results, false);
   elements.regex.textContent = outputText(candidate);
 
   renderCandidateTabs();
@@ -234,7 +479,7 @@ function renderCandidate() {
   ].filter(Boolean).length;
   const total =
     candidate.validation.positive_results.length + candidate.validation.negative_results.length;
-  elements.validationSummary.textContent = `${passed}/${total} beklenen sonuç`;
+  elements.validationSummary.textContent = `${passed}/${total} kontrol geçti`;
 
   elements.noteList.replaceChildren();
   candidate.notes.forEach((note) => {
@@ -242,7 +487,7 @@ function renderCandidate() {
     const title = document.createElement("strong");
     const detail = document.createElement("span");
     item.className = "note-item";
-    title.textContent = labels[note.code] ?? note.code;
+    title.textContent = noteTitles[note.code] ?? "Desen sınırı";
     detail.textContent = describeNote(note);
     item.append(title, detail);
     elements.noteList.append(item);
@@ -251,7 +496,7 @@ function renderCandidate() {
   if (candidate.notes.length === 0) {
     const item = document.createElement("div");
     item.className = "note-item";
-    item.textContent = "Bu aday için ek çıkarım notu yok.";
+    item.textContent = "Bu seçenek için ek bir desen kararı yok.";
     elements.noteList.append(item);
   }
 }
@@ -267,7 +512,6 @@ function renderResult(result) {
 
   elements.emptyState.hidden = true;
   elements.resultView.hidden = false;
-  elements.resultStatus.textContent = `${result.candidates.length} aday hazır`;
   renderCandidate();
 }
 
@@ -277,7 +521,7 @@ async function submitAnalysis(event) {
 
   const positiveExamples = parseLines(elements.positives.value);
   if (positiveExamples.length === 0) {
-    showError("En az bir pozitif örnek girmelisiniz.");
+    showError("En az bir eşleşmesi gereken log satırı girin.");
     elements.positives.focus();
     return;
   }
@@ -288,33 +532,54 @@ async function submitAnalysis(event) {
     negative_examples: parseLines(elements.negatives.value),
     match_mode: selectedMode?.value ?? "full",
   };
+  const requestBody = JSON.stringify(request);
+  if (new TextEncoder().encode(requestBody).byteLength > MAX_REQUEST_BYTES) {
+    showError("Girdi analiz sınırını aşıyor. Daha küçük ve temsilî bir log kümesi kullanın.");
+    return;
+  }
 
   setLoading(true);
   try {
     const response = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
+      body: requestBody,
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      throw new Error(payload?.error?.message ?? "Analiz isteği tamamlanamadı.");
+      const message = response.status === 400
+        ? "Girdi analiz edilemedi. Satırların boş olmadığını ve aynı biçime ait olduğunu denetleyin."
+        : "Analiz tamamlanamadı. Yerel motoru yeniden deneyin.";
+      throw new Error(message);
     }
     renderResult(payload);
   } catch (error) {
     showError(error instanceof Error ? error.message : "Beklenmeyen bir hata oluştu.");
-    elements.resultStatus.textContent = "Hata";
   } finally {
     setLoading(false);
-    if (state.result) {
-      elements.resultStatus.textContent = `${state.result.candidates.length} aday hazır`;
-    }
   }
 }
 
 elements.form.addEventListener("submit", submitAnalysis);
+elements.logFile.addEventListener("change", () => addLogFile(elements.logFile.files?.[0]));
 elements.positives.addEventListener("input", updateLineCounts);
 elements.negatives.addEventListener("input", updateLineCounts);
+
+for (const eventName of ["dragenter", "dragover"]) {
+  elements.uploadBox.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    elements.uploadBox.classList.add("is-dragging");
+  });
+}
+
+for (const eventName of ["dragleave", "drop"]) {
+  elements.uploadBox.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    elements.uploadBox.classList.remove("is-dragging");
+  });
+}
+
+elements.uploadBox.addEventListener("drop", (event) => addLogFile(event.dataTransfer?.files?.[0]));
 
 elements.candidateTabs.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-index]");
@@ -342,22 +607,11 @@ elements.copyRegex.addEventListener("click", async () => {
     await navigator.clipboard.writeText(elements.regex.textContent);
     elements.copyRegex.textContent = "Kopyalandı";
     window.setTimeout(() => {
-      elements.copyRegex.textContent = "Kopyala";
+      elements.copyRegex.textContent = "Çıktıyı kopyala";
     }, 1400);
   } catch {
-    showError("Regex panoya kopyalanamadı; metni elle seçebilirsiniz.");
+    showError("Çıktı panoya kopyalanamadı. Metni elle seçebilirsiniz.");
   }
 });
 
 updateLineCounts();
-
-fetch("/api/health")
-  .then((response) => response.json())
-  .then((health) => {
-    elements.engineStatusText.textContent = health.external_services
-      ? "Motor + harici servis"
-      : "Tamamen yerel motor";
-  })
-  .catch(() => {
-    elements.engineStatusText.textContent = "Motor durumu alınamadı";
-  });
