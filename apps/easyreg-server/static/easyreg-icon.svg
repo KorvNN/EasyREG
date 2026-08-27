@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img">
+  <title>EasyREG</title>
+  <defs>
+    <linearGradient id="easyreg-accent" x1="12" y1="10" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d8f558"/>
+      <stop offset="1" stop-color="#79d9a8"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#163b2f"/>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="13.5" fill="none" stroke="url(#easyreg-accent)" stroke-opacity=".48" stroke-width="3"/>
+  <path d="M17 16v32m0-32h21M17 32h17M17 48h21" fill="none" stroke="#f7ffe8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m48 14-12 36" fill="none" stroke="url(#easyreg-accent)" stroke-width="6" stroke-linecap="round"/>
+</svg>
