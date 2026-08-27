@@ -17,6 +17,7 @@ const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
 const INDEX_HTML: &str = include_str!("../static/index.html");
 const APP_CSS: &str = include_str!("../static/app.css");
 const APP_JS: &str = include_str!("../static/app.js");
+const ICON_SVG: &str = include_str!("../static/easyreg-icon.svg");
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -36,6 +37,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 fn app() -> Router {
     Router::new()
         .route("/", get(index))
+        .route("/easyreg-icon.svg", get(icon))
         .route("/app.css", get(stylesheet))
         .route("/app.js", get(javascript))
         .route("/api/health", get(health))
@@ -46,6 +48,13 @@ fn app() -> Router {
 
 async fn index() -> Html<&'static str> {
     Html(INDEX_HTML)
+}
+
+async fn icon() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "image/svg+xml; charset=utf-8")],
+        ICON_SVG,
+    )
 }
 
 async fn stylesheet() -> impl IntoResponse {

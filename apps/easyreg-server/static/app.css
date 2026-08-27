@@ -73,7 +73,7 @@ input:focus-visible {
 }
 
 .brand-mark {
-  display: grid;
+  display: block;
   width: 36px;
   height: 36px;
 }
