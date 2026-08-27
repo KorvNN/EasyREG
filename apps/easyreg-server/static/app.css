@@ -516,6 +516,105 @@ textarea::placeholder {
   background: #17251d;
 }
 
+.semantic-section {
+  margin-bottom: 22px;
+}
+
+.semantic-badge {
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #37644f !important;
+  background: var(--accent-soft);
+  font-weight: 800;
+}
+
+.semantic-message {
+  margin: -2px 0 10px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.semantic-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.semantic-field {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: #fafaf6;
+}
+
+.semantic-field-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.semantic-field code {
+  overflow: hidden;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+}
+
+.confidence {
+  color: var(--muted);
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.semantic-field strong,
+.semantic-field span {
+  display: block;
+}
+
+.semantic-field strong {
+  margin-bottom: 3px;
+  font-size: 0.72rem;
+}
+
+.semantic-field > span {
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+
+.output-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+}
+
+.output-tabs button {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--muted);
+  background: #f8f8f3;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.output-tabs button[aria-selected="true"] {
+  border-color: var(--accent);
+  color: #efffe9;
+  background: var(--accent);
+}
+
 .regex-toolbar {
   border-bottom: 1px solid rgb(255 255 255 / 10%);
   padding: 10px 13px;
@@ -741,7 +840,8 @@ footer {
 
   .candidate-tabs,
   .metrics,
-  .result-grid {
+  .result-grid,
+  .semantic-fields {
     grid-template-columns: 1fr;
   }
 

@@ -1,7 +1,7 @@
 # EasyREG
 
-EasyREG, örnek metinlerden regex üreten ve ürettiği ifadeleri
-otomatik olarak test eden açık kaynaklı bir araçtır.
+EasyREG, gerçek log satırlarından açıklanabilir regex ve parser çıktıları üreten,
+ürettiği ifadeleri otomatik olarak test eden açık kaynaklı bir araçtır.
 
 Eşleşmesi gereken örnekleri girersiniz. İsterseniz eşleşmemesi gereken örnekleri
 de eklersiniz. EasyREG örneklerin ortak yapısını analiz eder, farklı esneklik
@@ -19,6 +19,9 @@ seviyelerinde regex adayları oluşturur ve en uygun adayı önerir.
 - Her örnek için eşleşme sonucu ve yakalanan alanlar
 - Eşleşme başarısı, negatif örnekleri reddetme oranı ve aday puanlama
 - Makine tarafından işlenebilir JSON çıktı
+- Tarayıcı tabanlı log parser çalışma alanı
+- JavaScript ve Python parser kodu dışa aktarımı
+- Tamamen yerel, bağlam duyarlı alan isimlendirme
 
 ## Nasıl çalışır?
 
@@ -58,6 +61,27 @@ Bu örnek için önerilen JavaScript çıktısı:
 ^(?:INV-(?<field_1>[0-9]{4})-(?<field_2>[0-9]{5}))$
 ```
 
+## Web uygulaması
+
+Log parser çalışma alanını başlatmak için:
+
+```bash
+cargo run -p easyreg-server
+```
+
+Ardından `http://127.0.0.1:3000` adresini açın. Sunucu; web arayüzünü,
+`POST /api/analyze` analiz endpoint'ini ve `GET /api/health` sağlık endpoint'ini
+aynı origin üzerinden sunar.
+
+### Yerel semantik alan isimlendirme
+
+Regex üretimi, doğrulama ve capture isimlendirme tamamen yerel Rust motorunda
+yapılır. Alan türleri, gözlenen değerler ve `client_ip=`, `status=` veya
+`duration=` gibi komşu anahtarlar birlikte değerlendirilerek `level`,
+`source_ip`, `http_status` gibi taşınabilir isimler üretilir. Her isimle birlikte
+güven seviyesi ve kullanılan kural API yanıtında bulunur. Log verisi hiçbir harici
+servise gönderilmez ve API anahtarı gerekmez.
+
 ## CLI seçenekleri
 
 | Seçenek | Açıklama |
@@ -76,7 +100,25 @@ Bu örnek için önerilen JavaScript çıktısı:
 | `easyreg-core` | Temel veri modelleri ve `PatternSpec` |
 | `easyreg-detectors` | Alan tür tespiti |
 | `easyreg-inference` | Örneklerden yapı çıkarımı |
+| `easyreg-semantics` | Yerel ve bağlam duyarlı alan isimlendirme |
 | `easyreg-dialects` | Regex dillerine çeviri |
 | `easyreg-validation` | Eşleşme ve doğrulama |
 | `easyreg-engine` | Analiz akışı, puanlama ve öneri |
 | `easyreg-cli` | CLI uygulaması |
+| `easyreg-server` | HTTP API ve gömülü log parser web arayüzü |
+
+## Yerel doğrulama
+
+Tek komutla format, Clippy, tüm Rust testleri ve web JavaScript söz dizimi
+kontrol edilir:
+
+```bash
+./scripts/check.sh
+```
+
+`tests/corpus/logs/` altındaki sürümlenmiş corpus dosyaları gerçek log ailelerini,
+pozitif varyasyonları, yakın negatifleri, beklenen semantik kuralları ve her satır
+için beklenen capture değerlerini tanımlar. Uçtan uca test harness'i üretilen
+önerilen regex'i bu corpus'a yeniden uygular; pozitif kapsama veya negatif reddetme
+oranı yüzde 100 değilse test başarısız olur. Bu doğrulama tamamen yereldir; CI veya
+harici servis gerektirmez.

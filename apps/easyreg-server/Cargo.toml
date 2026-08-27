@@ -13,8 +13,12 @@ path = "src/main.rs"
 axum.workspace = true
 easyreg-core = { path = "../../crates/easyreg-core" }
 easyreg-engine = { path = "../../crates/easyreg-engine" }
+easyreg-semantics = { path = "../../crates/easyreg-semantics" }
 serde.workspace = true
 tokio.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true

@@ -7,15 +7,20 @@ const elements = {
   analyzeButton: document.querySelector("#analyze-button"),
   formError: document.querySelector("#form-error"),
   resultStatus: document.querySelector("#result-status"),
+  engineStatusText: document.querySelector("#engine-status-text"),
   emptyState: document.querySelector("#empty-state"),
   resultView: document.querySelector("#result-view"),
   candidateTabs: document.querySelector("#candidate-tabs"),
   dialectTabs: document.querySelector("#dialect-tabs"),
+  outputTabs: document.querySelector("#output-tabs"),
   score: document.querySelector("#score-metric"),
   coverage: document.querySelector("#coverage-metric"),
   rejection: document.querySelector("#rejection-metric"),
   regex: document.querySelector("#regex-output"),
   copyRegex: document.querySelector("#copy-regex"),
+  semanticBadge: document.querySelector("#semantic-badge"),
+  semanticMessage: document.querySelector("#semantic-message"),
+  semanticFields: document.querySelector("#semantic-fields"),
   validationSummary: document.querySelector("#validation-summary"),
   matchList: document.querySelector("#match-list"),
   noteList: document.querySelector("#note-list"),
@@ -37,6 +42,7 @@ const state = {
   result: null,
   candidateIndex: 0,
   dialect: "java_script",
+  output: "regex",
 };
 
 function parseLines(value) {
@@ -65,7 +71,7 @@ function setLoading(loading) {
   elements.analyzeButton.disabled = loading;
   elements.analyzeButton.querySelector(".button-label").textContent = loading
     ? "Örnekler analiz ediliyor…"
-    : "Regex adaylarını üret";
+    : "Log parser’ını üret";
   elements.resultStatus.textContent = loading ? "Analiz ediliyor" : "Hazır";
 }
 
@@ -97,9 +103,69 @@ function renderCandidateTabs() {
 }
 
 function renderDialectTabs() {
+  elements.dialectTabs.hidden = state.output !== "regex";
   elements.dialectTabs.querySelectorAll("button").forEach((button) => {
     button.setAttribute("aria-selected", String(button.dataset.dialect === state.dialect));
   });
+}
+
+function renderOutputTabs() {
+  elements.outputTabs.querySelectorAll("button").forEach((button) => {
+    button.setAttribute("aria-selected", String(button.dataset.output === state.output));
+  });
+}
+
+function javascriptParser(pattern) {
+  return `const LOG_PATTERN = new RegExp(${JSON.stringify(pattern)});\n\nfunction parseLog(line) {\n  const match = LOG_PATTERN.exec(line);\n  return match ? { ...match.groups } : null;\n}`;
+}
+
+function pythonParser(pattern) {
+  return `import re\n\nLOG_PATTERN = re.compile(${JSON.stringify(pattern)})\n\ndef parse_log(line: str) -> dict[str, str] | None:\n    match = LOG_PATTERN.fullmatch(line)\n    return match.groupdict() if match else None`;
+}
+
+function outputText(candidate) {
+  if (state.output === "javascript_parser") {
+    return javascriptParser(candidate.renderings.java_script);
+  }
+  if (state.output === "python_parser") {
+    return pythonParser(candidate.renderings.python);
+  }
+  return candidate.renderings[state.dialect] ?? "Bu dil için çıktı yok.";
+}
+
+function renderSemantics() {
+  const semantics = state.result.semantics;
+  elements.semanticFields.replaceChildren();
+
+  if (semantics.status === "complete") {
+    elements.semanticBadge.textContent = "Yerel kural motoru";
+    elements.semanticMessage.textContent = "Alan adları veri tipi, gözlenen değerler ve komşu anahtarlar kullanılarak tamamen yerel üretildi.";
+    semantics.fields.forEach((field) => {
+      const item = document.createElement("article");
+      const header = document.createElement("div");
+      const name = document.createElement("code");
+      const confidence = document.createElement("span");
+      const label = document.createElement("strong");
+      const description = document.createElement("span");
+      item.className = "semantic-field";
+      header.className = "semantic-field-header";
+      name.textContent = field.name;
+      confidence.className = "confidence";
+      confidence.textContent = field.confidence;
+      label.textContent = field.label;
+      description.textContent = field.description;
+      header.append(name, confidence);
+      item.append(header, label, description);
+      elements.semanticFields.append(item);
+    });
+    return;
+  }
+
+  const messages = {
+    not_applicable: "Bu adayda isimlendirilecek capture alanı bulunamadı.",
+  };
+  elements.semanticBadge.textContent = "Yerel kural motoru";
+  elements.semanticMessage.textContent = messages[semantics.status] ?? "Semantik bilgi bulunamadı.";
 }
 
 function appendMatch(result, expectedMatch) {
@@ -151,10 +217,12 @@ function renderCandidate() {
   elements.score.textContent = `${(candidate.score * 100).toFixed(1)}`;
   elements.coverage.textContent = formatPercent(candidate.validation.positive_coverage);
   elements.rejection.textContent = formatPercent(candidate.validation.negative_rejection);
-  elements.regex.textContent = candidate.renderings[state.dialect] ?? "Bu dil için çıktı yok.";
+  elements.regex.textContent = outputText(candidate);
 
   renderCandidateTabs();
   renderDialectTabs();
+  renderOutputTabs();
+  renderSemantics();
 
   elements.matchList.replaceChildren();
   candidate.validation.positive_results.forEach((result) => appendMatch(result, true));
@@ -195,6 +263,7 @@ function renderResult(result) {
   );
   state.candidateIndex = recommendedIndex >= 0 ? recommendedIndex : 0;
   state.dialect = "java_script";
+  state.output = "regex";
 
   elements.emptyState.hidden = true;
   elements.resultView.hidden = false;
@@ -261,6 +330,13 @@ elements.dialectTabs.addEventListener("click", (event) => {
   renderCandidate();
 });
 
+elements.outputTabs.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-output]");
+  if (!button) return;
+  state.output = button.dataset.output;
+  renderCandidate();
+});
+
 elements.copyRegex.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(elements.regex.textContent);
@@ -274,3 +350,14 @@ elements.copyRegex.addEventListener("click", async () => {
 });
 
 updateLineCounts();
+
+fetch("/api/health")
+  .then((response) => response.json())
+  .then((health) => {
+    elements.engineStatusText.textContent = health.external_services
+      ? "Motor + harici servis"
+      : "Tamamen yerel motor";
+  })
+  .catch(() => {
+    elements.engineStatusText.textContent = "Motor durumu alınamadı";
+  });

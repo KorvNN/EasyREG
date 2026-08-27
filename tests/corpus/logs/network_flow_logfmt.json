@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "name": "network_flow_logfmt",
+  "description": "Kaynak/hedef ağ alanları ile korelasyon kimliği içeren akış logları",
+  "request": {
+    "positive_examples": [
+      "2026-08-27 14:32:17 INFO src_ip=10.0.0.5 dst_ip=10.0.1.10 src_port=52344 dst_port=443 request_id=550e8400-e29b-41d4-a716-446655440000",
+      "2026-08-27 14:33:18 WARN src_ip=192.168.1.7 dst_ip=172.16.0.20 src_port=49152 dst_port=8443 request_id=123e4567-e89b-12d3-a456-426614174000",
+      "2026-08-28 00:01:02 ERROR src_ip=127.0.0.1 dst_ip=10.10.10.10 src_port=61000 dst_port=80 request_id=6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "2024-02-29 23:59:59 DEBUG src_ip=172.20.4.8 dst_ip=192.0.2.25 src_port=32768 dst_port=8080 request_id=7d444840-9dc0-11d1-b245-5ffdce74fad2"
+    ],
+    "negative_examples": [
+      "2026-08-27 14:32:17 INFO src_ip=10.0.0.999 dst_ip=10.0.1.10 src_port=52344 dst_port=443 request_id=550e8400-e29b-41d4-a716-446655440000",
+      "2026-08-27 14:32:17 INFO src_ip=10.0.0.5 dst_ip=10.0.1 src_port=52344 dst_port=443 request_id=550e8400-e29b-41d4-a716-446655440000",
+      "2026-08-27 14:32:17 INFO src_ip=10.0.0.5 dst_ip=10.0.1.10 src_port=source dst_port=443 request_id=550e8400-e29b-41d4-a716-446655440000",
+      "2026-08-27 14:32:17 INFO src_ip=10.0.0.5 dst_ip=10.0.1.10 src_port=52344 dst_port=443 request_id=not-a-uuid",
+      "2026-08-27 14:32:17 INFO src_ip=10.0.0.5 dst_ip=10.0.1.10 src_port=52344 request_id=550e8400-e29b-41d4-a716-446655440000"
+    ],
+    "match_mode": "full"
+  },
+  "expected": {
+    "semantic_rules": {
+      "log_date": "kind.date_iso",
+      "log_time": "kind.time",
+      "level": "values.log_level",
+      "source_ip": "context.source_ip",
+      "destination_ip": "context.destination_ip",
+      "port": "context.port",
+      "port_2": "context.port",
+      "request_id": "context.request_id"
+    },
+    "captures": {
+      "log_date": ["2026-08-27", "2026-08-27", "2026-08-28", "2024-02-29"],
+      "log_time": ["14:32:17", "14:33:18", "00:01:02", "23:59:59"],
+      "level": ["INFO", "WARN", "ERROR", "DEBUG"],
+      "source_ip": ["10.0.0.5", "192.168.1.7", "127.0.0.1", "172.20.4.8"],
+      "destination_ip": ["10.0.1.10", "172.16.0.20", "10.10.10.10", "192.0.2.25"],
+      "port": ["52344", "49152", "61000", "32768"],
+      "port_2": ["443", "8443", "80", "8080"],
+      "request_id": [
+        "550e8400-e29b-41d4-a716-446655440000",
+        "123e4567-e89b-12d3-a456-426614174000",
+        "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+        "7d444840-9dc0-11d1-b245-5ffdce74fad2"
+      ]
+    }
+  }
+}

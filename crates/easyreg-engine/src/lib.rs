@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use easyreg_core::{
     AnalysisResult, AnalyzeRequest, AnalyzedCandidate, Dialect, GeneralizationStrategy,
-    ValidationReport,
+    PatternNode, ValidationReport,
 };
 use easyreg_dialects::{RenderError, render};
 use easyreg_inference::{InferenceError, InferredCandidate, infer, infer_exact};
@@ -59,6 +59,64 @@ pub fn analyze(request: &AnalyzeRequest) -> Result<AnalysisResult, AnalysisError
         candidates,
         recommended_strategy,
     })
+}
+
+/// Applies validated semantic names to inferred capture fields and refreshes
+/// every rendering and validation report.
+///
+/// Unknown field identifiers are ignored so that structurally different
+/// candidates can coexist in one analysis result.
+///
+/// # Errors
+///
+/// Returns [`AnalysisError`] if a renamed pattern cannot be rendered or
+/// validated.
+pub fn apply_field_names(
+    result: &mut AnalysisResult,
+    request: &AnalyzeRequest,
+    names: &BTreeMap<String, String>,
+) -> Result<(), AnalysisError> {
+    for candidate in &mut result.candidates {
+        rename_node_fields(&mut candidate.spec.root, names);
+        candidate.validation = validate(
+            &candidate.spec,
+            &request.positive_examples,
+            &request.negative_examples,
+        )?;
+        candidate.renderings = [Dialect::JavaScript, Dialect::Python, Dialect::Pcre2]
+            .into_iter()
+            .map(|dialect| render(&candidate.spec, dialect).map(|pattern| (dialect, pattern)))
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+        candidate.score = score(
+            candidate.strategy,
+            &candidate.validation,
+            candidate.spec.root.node_count(),
+        );
+    }
+
+    Ok(())
+}
+
+fn rename_node_fields(node: &mut PatternNode, names: &BTreeMap<String, String>) {
+    match node {
+        PatternNode::Field { field } => {
+            if let Some(name) = names.get(&field.id) {
+                field.name = Some(name.clone());
+            }
+        }
+        PatternNode::Sequence { nodes } => {
+            for node in nodes {
+                rename_node_fields(node, names);
+            }
+        }
+        PatternNode::Alternation { branches } => {
+            for branch in branches {
+                rename_node_fields(branch, names);
+            }
+        }
+        PatternNode::Repeat { node, .. } => rename_node_fields(node, names),
+        PatternNode::Literal { .. } => {}
+    }
 }
 
 fn analyze_candidate(
@@ -227,6 +285,38 @@ mod tests {
                 .notes
                 .iter()
                 .all(|note| note.code != NoteCode::ExactAlternationFallback)
+        );
+    }
+
+    #[test]
+    fn applies_semantic_capture_names_and_refreshes_captures() {
+        let request = AnalyzeRequest {
+            positive_examples: vec!["INV-2026-00127".to_owned(), "INV-2025-84621".to_owned()],
+            negative_examples: Vec::new(),
+            match_mode: MatchMode::Full,
+        };
+        let mut result = analyze(&request).expect("analysis should succeed");
+        apply_field_names(
+            &mut result,
+            &request,
+            &BTreeMap::from([
+                ("field_1".to_owned(), "year".to_owned()),
+                ("field_2".to_owned(), "invoice_id".to_owned()),
+            ]),
+        )
+        .expect("semantic names should render");
+        let balanced = result
+            .candidates
+            .iter()
+            .find(|candidate| candidate.strategy == GeneralizationStrategy::Balanced)
+            .expect("balanced candidate should exist");
+
+        assert!(balanced.renderings[&Dialect::JavaScript].contains("(?<year>"));
+        assert_eq!(
+            balanced.validation.positive_results[0]
+                .captures
+                .get("invoice_id"),
+            Some(&"00127".to_owned())
         );
     }
 }

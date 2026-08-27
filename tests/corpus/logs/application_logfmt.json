@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "name": "application_logfmt",
+  "description": "HTTP uygulama loglarında tarih, saat, seviye, istemci, rota ve ölçüm alanları",
+  "request": {
+    "positive_examples": [
+      "2026-08-27 14:32:17 ERROR client_ip=10.0.0.5 method=GET path=/api/users status=500 duration=83",
+      "2026-08-28 09:04:03 INFO client_ip=192.168.1.24 method=POST path=/api/orders status=201 duration=127",
+      "2024-02-29 23:59:59.125 WARN client_ip=172.16.4.9 method=PATCH path=/health/live status=429 duration=9",
+      "2025-12-01 00:00:00 DEBUG client_ip=127.0.0.1 method=DELETE path=/api/sessions/42 status=204 duration=1042"
+    ],
+    "negative_examples": [
+      "2026-02-29 14:32:17 ERROR client_ip=10.0.0.5 method=GET path=/api/users status=500 duration=83",
+      "2026-08-27 24:00:00 ERROR client_ip=10.0.0.5 method=GET path=/api/users status=500 duration=83",
+      "2026-08-27 14:32:17 ERROR client_ip=999.0.0.5 method=GET path=/api/users status=500 duration=83",
+      "2026-08-27 14:32:17 ERROR client_ip=10.0.0.5 method=GET path=api/users status=500 duration=83",
+      "2026-08-27 14:32:17 ERROR client_ip=10.0.0.5 method=GET path=/api/users status=500"
+    ],
+    "match_mode": "full"
+  },
+  "expected": {
+    "semantic_rules": {
+      "log_date": "kind.date_iso",
+      "log_time": "kind.time",
+      "level": "values.log_level",
+      "source_ip": "context.source_ip",
+      "http_method": "values.http_method",
+      "path": "kind.path",
+      "http_status": "context.http_status",
+      "duration": "context.duration"
+    },
+    "captures": {
+      "log_date": ["2026-08-27", "2026-08-28", "2024-02-29", "2025-12-01"],
+      "log_time": ["14:32:17", "09:04:03", "23:59:59.125", "00:00:00"],
+      "level": ["ERROR", "INFO", "WARN", "DEBUG"],
+      "source_ip": ["10.0.0.5", "192.168.1.24", "172.16.4.9", "127.0.0.1"],
+      "http_method": ["GET", "POST", "PATCH", "DELETE"],
+      "path": ["/api/users", "/api/orders", "/health/live", "/api/sessions/42"],
+      "http_status": ["500", "201", "429", "204"],
+      "duration": ["83", "127", "9", "1042"]
+    }
+  }
+}

@@ -227,13 +227,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "easyreg-semantics"
+version = "0.1.0"
+dependencies = [
+ "easyreg-core",
+ "serde",
+]
+
+[[package]]
 name = "easyreg-server"
 version = "0.1.0"
 dependencies = [
  "axum",
  "easyreg-core",
  "easyreg-engine",
+ "easyreg-semantics",
  "serde",
+ "serde_json",
  "tokio",
 ]
 

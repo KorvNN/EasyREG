@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "name": "identity_event_logfmt",
+  "description": "Kullanıcı, e-posta ve mutlak URL alanları içeren kimlik olayları",
+  "request": {
+    "positive_examples": [
+      "2026-08-27 14:32:17 INFO user_id=42 email=ops@example.com url=https://id.example.com/users/42",
+      "2026-08-27 14:35:03 WARN user_id=108 email=alice@nordis.test url=https://id.example.com/users/108",
+      "2026-08-28 00:01:59 ERROR user_id=7 email=bob@example.org url=http://localhost:8080/users/7",
+      "2024-02-29 23:59:59 DEBUG user_id=9001 email=security@example.net url=https://audit.example.net/principals/9001"
+    ],
+    "negative_examples": [
+      "2026-08-27 14:32:17 INFO user_id=uid email=ops@example.com url=https://id.example.com/users/42",
+      "2026-08-27 14:32:17 INFO user_id=42 email=ops@example url=https://id.example.com/users/42",
+      "2026-08-27 14:32:17 INFO user_id=42 email=ops@example.com url=ftp://id.example.com/users/42",
+      "2026-08-27 14:32:17 INFO user_id=42 email=ops@example.com url=https://",
+      "2026-08-27 14:32:17 INFO email=ops@example.com url=https://id.example.com/users/42"
+    ],
+    "match_mode": "full"
+  },
+  "expected": {
+    "semantic_rules": {
+      "log_date": "kind.date_iso",
+      "log_time": "kind.time",
+      "level": "values.log_level",
+      "user_id": "context.user_id",
+      "email": "kind.email",
+      "url": "kind.url"
+    },
+    "captures": {
+      "log_date": ["2026-08-27", "2026-08-27", "2026-08-28", "2024-02-29"],
+      "log_time": ["14:32:17", "14:35:03", "00:01:59", "23:59:59"],
+      "level": ["INFO", "WARN", "ERROR", "DEBUG"],
+      "user_id": ["42", "108", "7", "9001"],
+      "email": ["ops@example.com", "alice@nordis.test", "bob@example.org", "security@example.net"],
+      "url": [
+        "https://id.example.com/users/42",
+        "https://id.example.com/users/108",
+        "http://localhost:8080/users/7",
+        "https://audit.example.net/principals/9001"
+      ]
+    }
+  }
+}

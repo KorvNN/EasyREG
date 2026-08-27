@@ -7,8 +7,8 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'"
     >
-    <meta name="description" content="Örneklerden açıklanabilir ve doğrulanmış regex adayları üretin.">
-    <title>EasyREG · Regex çıkarım stüdyosu</title>
+    <meta name="description" content="Log örneklerinden açıklanabilir ve doğrulanmış parser çıktıları üretin.">
+    <title>EasyREG · Log parser stüdyosu</title>
     <link rel="stylesheet" href="/app.css">
     <script src="/app.js" defer></script>
   </head>
@@ -19,19 +19,19 @@
           <span class="brand-mark" aria-hidden="true">E/</span>
           <span>EasyREG</span>
         </a>
-        <div class="engine-status">
+        <div class="engine-status" id="engine-status">
           <span class="status-dot" aria-hidden="true"></span>
-          Deterministik motor
+          <span id="engine-status-text">Motor hazır</span>
         </div>
       </header>
 
       <main>
         <section class="hero" aria-labelledby="page-title">
-          <p class="eyebrow">Regex çıkarım stüdyosu</p>
-          <h1 id="page-title">Örnekleri verin.<br><em>Deseni görün.</em></h1>
+          <p class="eyebrow">Log parser stüdyosu</p>
+          <h1 id="page-title">Logları yapıştırın.<br><em>Parser’ı alın.</em></h1>
           <p class="hero-copy">
-            Eşleşmesi ve reddedilmesi gereken değerlerden taşınabilir regex adayları üretin;
-            sonucu her örneğin üzerinde doğrulayın.
+            Gerçek log satırlarından alanları çıkarın, semantik olarak adlandırın ve her örnek
+            üzerinde doğrulanmış parser kodunu dışa aktarın.
           </p>
         </section>
 
@@ -39,14 +39,14 @@
           <section class="panel input-panel" aria-labelledby="input-title">
             <div class="panel-heading">
               <div>
-                <p class="step-label">01 · Örnekler</p>
-                <h2 id="input-title">Veri kümesini tanımlayın</h2>
+                <p class="step-label">01 · Log girdisi</p>
+                <h2 id="input-title">Log satırlarını yapıştırın</h2>
               </div>
             </div>
 
             <form id="analyze-form" novalidate>
               <label class="field-label" for="positive-examples">
-                <span>Pozitif örnekler <strong>Gerekli</strong></span>
+                <span>İşlenecek loglar <strong>Gerekli</strong></span>
                 <span class="line-count" id="positive-count">0 satır</span>
               </label>
               <textarea
@@ -56,10 +56,10 @@
                 spellcheck="false"
                 required
               ></textarea>
-              <p class="field-help">Her satıra eşleşmesi gereken bir değer girin.</p>
+              <p class="field-help">Aynı olay ailesinden en az 2–3 gerçek log satırı kullanın.</p>
 
               <label class="field-label negative-label" for="negative-examples">
-                <span>Negatif örnekler <i>İsteğe bağlı</i></span>
+                <span>Reddedilecek loglar <i>İsteğe bağlı</i></span>
                 <span class="line-count" id="negative-count">0 satır</span>
               </label>
               <textarea
@@ -68,25 +68,25 @@
                 rows="5"
                 spellcheck="false"
               ></textarea>
-              <p class="field-help">Regex’in reddetmesi gereken değerleri ekleyin.</p>
+              <p class="field-help">Benzer görünen fakat bu parser’a ait olmayan satırları ekleyin.</p>
 
               <fieldset class="mode-fieldset">
                 <legend>Eşleşme modu</legend>
                 <div class="segmented-control">
                   <label>
                     <input type="radio" name="match_mode" value="full" checked>
-                    <span>Tam metin</span>
+                    <span>Tüm satırı ayrıştır</span>
                   </label>
                   <label>
                     <input type="radio" name="match_mode" value="search">
-                    <span>Metin içinde ara</span>
+                    <span>Satır içinde bul</span>
                   </label>
                 </div>
               </fieldset>
 
               <div class="form-error" id="form-error" role="alert" hidden></div>
               <button class="primary-button" id="analyze-button" type="submit">
-                <span class="button-label">Regex adaylarını üret</span>
+                <span class="button-label">Log parser’ını üret</span>
                 <span class="button-arrow" aria-hidden="true">↗</span>
               </button>
             </form>
@@ -95,8 +95,8 @@
           <section class="panel output-panel" aria-labelledby="output-title">
             <div class="panel-heading output-heading">
               <div>
-                <p class="step-label">02 · Sonuç</p>
-                <h2 id="output-title">Adayları karşılaştırın</h2>
+                <p class="step-label">02 · Parser çıktısı</p>
+                <h2 id="output-title">Alanları ve çıktıyı inceleyin</h2>
               </div>
               <span class="result-status" id="result-status" aria-live="polite">Hazır</span>
             </div>
@@ -106,8 +106,8 @@
                 <span></span><span></span><span></span>
                 <code>.*</code>
               </div>
-              <h3>Henüz bir analiz yok</h3>
-              <p>Örneklerinizi girip üret düğmesine bastığınızda üç farklı aday burada görünecek.</p>
+              <h3>Log satırları bekleniyor</h3>
+              <p>Girdiyi gönderdiğinizde alan haritası, doğrulama sonuçları ve parser kodu burada görünecek.</p>
             </div>
 
             <div id="result-view" hidden>
@@ -126,6 +126,21 @@
                   <span>Negatif ret</span>
                   <strong id="rejection-metric">—</strong>
                 </div>
+              </div>
+
+              <section class="semantic-section" id="semantic-section" aria-labelledby="semantic-title">
+                <div class="section-heading">
+                  <h3 id="semantic-title">Alan haritası</h3>
+                  <span class="semantic-badge" id="semantic-badge">Motor çıkarımı</span>
+                </div>
+                <p class="semantic-message" id="semantic-message"></p>
+                <div class="semantic-fields" id="semantic-fields"></div>
+              </section>
+
+              <div class="output-tabs" id="output-tabs" aria-label="Çıktı biçimi">
+                <button type="button" data-output="regex">Regex</button>
+                <button type="button" data-output="javascript_parser">JavaScript parser</button>
+                <button type="button" data-output="python_parser">Python parser</button>
               </div>
 
               <div class="regex-card">
@@ -151,7 +166,7 @@
 
                 <section class="result-section" aria-labelledby="notes-title">
                   <div class="section-heading">
-                    <h3 id="notes-title">Çıkarım notları</h3>
+                    <h3 id="notes-title">Motor notları</h3>
                   </div>
                   <div class="note-list" id="note-list"></div>
                 </section>
@@ -162,8 +177,8 @@
       </main>
 
       <footer>
-        <span>EasyREG · Açıklanabilir regex üretimi</span>
-        <span>JavaScript · Python · PCRE2</span>
+        <span>EasyREG · Açıklanabilir log parsing</span>
+        <span>Yerel çıkarım · Harici servis yok</span>
       </footer>
     </div>
   </body>

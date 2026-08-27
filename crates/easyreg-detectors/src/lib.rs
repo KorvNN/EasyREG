@@ -22,7 +22,9 @@ impl Default for DetectorRegistry {
                 Box::new(UuidDetector),
                 Box::new(EmailDetector),
                 Box::new(UrlDetector),
+                Box::new(PathDetector),
                 Box::new(DateIsoDetector),
+                Box::new(TimeDetector),
                 Box::new(HexDetector),
                 Box::new(DecimalDetector),
                 Box::new(IntegerDetector),
@@ -139,6 +141,20 @@ impl Detector for UrlDetector {
     }
 }
 
+struct PathDetector;
+
+impl Detector for PathDetector {
+    fn kind(&self) -> FieldKind {
+        FieldKind::Path
+    }
+
+    fn matches(&self, value: &str) -> bool {
+        value.starts_with('/')
+            && value.len() > 1
+            && value.chars().all(|character| !character.is_whitespace())
+    }
+}
+
 struct DateIsoDetector;
 
 impl Detector for DateIsoDetector {
@@ -184,6 +200,36 @@ impl Detector for DateIsoDetector {
 
 const fn is_leap_year(year: u32) -> bool {
     year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
+}
+
+struct TimeDetector;
+
+impl Detector for TimeDetector {
+    fn kind(&self) -> FieldKind {
+        FieldKind::Time
+    }
+
+    fn matches(&self, value: &str) -> bool {
+        let (clock, fraction) = value
+            .split_once('.')
+            .map_or((value, None), |(clock, fraction)| (clock, Some(fraction)));
+        let mut parts = clock.split(':');
+        let (Some(hour), Some(minute), Some(second), None) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
+            return false;
+        };
+
+        hour.len() == 2
+            && minute.len() == 2
+            && second.len() == 2
+            && hour.parse::<u8>().is_ok_and(|value| value < 24)
+            && minute.parse::<u8>().is_ok_and(|value| value < 60)
+            && second.parse::<u8>().is_ok_and(|value| value < 60)
+            && fraction.is_none_or(|digits| {
+                !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())
+            })
+    }
 }
 
 struct HexDetector;
@@ -312,6 +358,147 @@ impl Detector for NonWhitespaceDetector {
 mod tests {
     use super::*;
 
+    struct DetectorCase {
+        kind: FieldKind,
+        positives: &'static [&'static str],
+        negatives: &'static [&'static str],
+    }
+
+    const DETECTOR_CASES: &[DetectorCase] = &[
+        DetectorCase {
+            kind: FieldKind::Ipv4,
+            positives: &["192.168.1.1", "10.0.0.7"],
+            negatives: &["256.1.1.1", "10.0.0", "10.0.0.1 "],
+        },
+        DetectorCase {
+            kind: FieldKind::Ipv6,
+            positives: &["2001:db8::1", "::1"],
+            negatives: &["2001:db8:::1", "not:ipv6"],
+        },
+        DetectorCase {
+            kind: FieldKind::Uuid,
+            positives: &[
+                "550e8400-e29b-41d4-a716-446655440000",
+                "123e4567-e89b-12d3-a456-426614174000",
+            ],
+            negatives: &[
+                "550e8400-e29b-41d4-a716-44665544000",
+                "550e8400-e29b-41d4-a716-44665544000z",
+            ],
+        },
+        DetectorCase {
+            kind: FieldKind::Email,
+            positives: &["ops@example.com", "efe.korun@nordis.test"],
+            negatives: &["ops@example", "@example.com", "ops @example.com"],
+        },
+        DetectorCase {
+            kind: FieldKind::Url,
+            positives: &["https://example.com/api", "http://127.0.0.1:3000/health"],
+            negatives: &[
+                "ftp://example.com/api",
+                "https://",
+                "https://example.com/a b",
+            ],
+        },
+        DetectorCase {
+            kind: FieldKind::Path,
+            positives: &["/api/users", "/var/log/app.log"],
+            negatives: &["/", "api/users", "/api/user list"],
+        },
+        DetectorCase {
+            kind: FieldKind::DateIso,
+            positives: &["2024-02-29", "2026-08-27"],
+            negatives: &["2023-02-29", "2026-04-31", "27-08-2026"],
+        },
+        DetectorCase {
+            kind: FieldKind::Time,
+            positives: &["00:00:00", "23:59:59.123"],
+            negatives: &["24:00:00", "12:60:00", "12:30"],
+        },
+        DetectorCase {
+            kind: FieldKind::Hexadecimal,
+            positives: &["0x1a", "0XDEADBEEF"],
+            negatives: &["1a", "0x", "0xG1"],
+        },
+        DetectorCase {
+            kind: FieldKind::Decimal,
+            positives: &["0.5", "123.456"],
+            negatives: &["1.", ".5", "1.2.3"],
+        },
+        DetectorCase {
+            kind: FieldKind::Integer,
+            positives: &["0", "2026"],
+            negatives: &["-1", "1.0", "12a"],
+        },
+        DetectorCase {
+            kind: FieldKind::Uppercase,
+            positives: &["ERROR", "WARN"],
+            negatives: &["Error", "WARN1", "WARN!"],
+        },
+        DetectorCase {
+            kind: FieldKind::Lowercase,
+            positives: &["error", "warn"],
+            negatives: &["Error", "warn1", "warn!"],
+        },
+        DetectorCase {
+            kind: FieldKind::Alphabetic,
+            positives: &["Error", "Nordis"],
+            negatives: &["Error1", "Nordis-Inspector"],
+        },
+        DetectorCase {
+            kind: FieldKind::Alphanumeric,
+            positives: &["Error42", "Log2026"],
+            negatives: &["Error_42", "Log-2026"],
+        },
+        DetectorCase {
+            kind: FieldKind::Whitespace,
+            positives: &[" ", "\t\t"],
+            negatives: &["", " a "],
+        },
+        DetectorCase {
+            kind: FieldKind::NonWhitespace,
+            positives: &["abc_123", "value!"],
+            negatives: &["", "two words"],
+        },
+    ];
+
+    #[test]
+    fn every_registered_detector_has_canonical_and_negative_samples() {
+        let registry = DetectorRegistry::default();
+        let registered = registry
+            .detectors
+            .iter()
+            .map(|detector| detector.kind())
+            .collect::<Vec<_>>();
+        let covered = DETECTOR_CASES
+            .iter()
+            .map(|case| case.kind)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            registered, covered,
+            "detector corpus must follow registry order"
+        );
+        for case in DETECTOR_CASES {
+            assert!(case.positives.len() >= 2, "{:?} needs variety", case.kind);
+            assert!(case.negatives.len() >= 2, "{:?} needs negatives", case.kind);
+            assert_eq!(
+                registry.classify_all(case.positives),
+                case.kind,
+                "{:?} did not classify its canonical samples",
+                case.kind
+            );
+            for negative in case.negatives {
+                assert_ne!(
+                    registry.classify_all(&[negative]),
+                    case.kind,
+                    "{:?} accepted negative sample {negative:?}",
+                    case.kind
+                );
+            }
+        }
+    }
+
     #[test]
     fn chooses_semantic_detectors_before_lexical_detectors() {
         let registry = DetectorRegistry::default();
@@ -344,12 +531,33 @@ mod tests {
     }
 
     #[test]
+    fn validates_24_hour_times() {
+        let registry = DetectorRegistry::default();
+
+        assert_eq!(
+            registry.classify_all(&["00:00:00", "23:59:59.123"]),
+            FieldKind::Time
+        );
+        assert_ne!(registry.classify_all(&["24:00:00"]), FieldKind::Time);
+    }
+
+    #[test]
     fn falls_back_to_non_whitespace_for_unknown_tokens() {
         let registry = DetectorRegistry::default();
 
         assert_eq!(
             registry.classify_all(&["abc_123", "xyz_987"]),
             FieldKind::NonWhitespace
+        );
+    }
+
+    #[test]
+    fn recognizes_absolute_paths_before_generic_text() {
+        let registry = DetectorRegistry::default();
+
+        assert_eq!(
+            registry.classify_all(&["/api/users", "/api/orders?page=2"]),
+            FieldKind::Path
         );
     }
 }

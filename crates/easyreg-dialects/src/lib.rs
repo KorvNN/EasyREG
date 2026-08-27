@@ -137,6 +137,7 @@ fn field_body(field: &FieldSpec) -> Result<String, RenderError> {
         }
         FieldKind::Email => Some(r"[^@\s]+@[^@\s]+\.[^@\s]+"),
         FieldKind::Url => Some(r"https?://[^\s]+"),
+        FieldKind::Path => Some(r"/[^\s]*"),
         FieldKind::DateIso => Some(concat!(
             r"(?:[0-9]{4}-(?:",
             r"(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|",
@@ -147,6 +148,7 @@ fn field_body(field: &FieldSpec) -> Result<String, RenderError> {
             r"(?:[02468][048]|[13579][26])00)-02-29",
             r")",
         )),
+        FieldKind::Time => Some(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]+)?"),
         FieldKind::Decimal => Some(r"[0-9]+\.[0-9]+"),
         FieldKind::Hexadecimal => Some(r"0[xX][0-9A-Fa-f]+"),
         _ => None,
@@ -170,7 +172,9 @@ fn field_body(field: &FieldSpec) -> Result<String, RenderError> {
         | FieldKind::Uuid
         | FieldKind::Email
         | FieldKind::Url
+        | FieldKind::Path
         | FieldKind::DateIso
+        | FieldKind::Time
         | FieldKind::Decimal
         | FieldKind::Hexadecimal => unreachable!("semantic fields returned above"),
     };

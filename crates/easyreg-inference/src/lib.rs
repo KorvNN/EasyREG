@@ -101,6 +101,7 @@ fn build_exact_candidate(request: &AnalyzeRequest) -> InferredCandidate {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TokenKind {
+    Semantic,
     Digits,
     Uppercase,
     Lowercase,
@@ -135,7 +136,7 @@ fn infer_single_example(example: &str) -> Option<Vec<Segment>> {
 
     let mut segments = Vec::new();
     for token in tokenize(example) {
-        if token.kind == TokenKind::Digits {
+        if matches!(token.kind, TokenKind::Semantic | TokenKind::Digits) {
             push_segment(&mut segments, Segment::Variable(vec![token.text]));
         } else {
             push_segment(&mut segments, Segment::Literal(token.text));
@@ -163,7 +164,10 @@ fn infer_aligned_segments(examples: &[String]) -> Option<Vec<Segment>> {
             .map(|tokens| tokens[column].text.clone())
             .collect::<Vec<_>>();
 
-        if values.windows(2).all(|pair| pair[0] == pair[1]) {
+        let semantic = tokenized
+            .iter()
+            .all(|tokens| tokens[column].kind == TokenKind::Semantic);
+        if values.windows(2).all(|pair| pair[0] == pair[1]) && !semantic {
             push_segment(&mut segments, Segment::Literal(values[0].clone()));
         } else {
             push_segment(&mut segments, Segment::Variable(values));
@@ -196,30 +200,78 @@ fn all_whitespace(values: &[String]) -> bool {
 }
 
 fn tokenize(input: &str) -> Vec<Token> {
+    let registry = DetectorRegistry::default();
     let mut tokens = Vec::new();
-    let mut start = 0;
-    let mut active_kind = None;
+    let mut run_start = 0;
+    let mut whitespace = None;
 
     for (index, character) in input.char_indices() {
+        let current_whitespace = character.is_whitespace();
+        if whitespace.is_some_and(|active| active != current_whitespace) {
+            tokenize_run(
+                &input[run_start..index],
+                whitespace == Some(true),
+                &registry,
+                &mut tokens,
+            );
+            run_start = index;
+        }
+        whitespace = Some(current_whitespace);
+    }
+
+    if let Some(is_whitespace) = whitespace {
+        tokenize_run(&input[run_start..], is_whitespace, &registry, &mut tokens);
+    }
+
+    tokens
+}
+
+fn tokenize_run(run: &str, whitespace: bool, registry: &DetectorRegistry, tokens: &mut Vec<Token>) {
+    if !whitespace
+        && let Some((key, value)) = run.split_once('=')
+        && !key.is_empty()
+        && registry.classify_all(&[value]).has_intrinsic_shape()
+    {
+        push_lexical_tokens(&run[..=key.len()], tokens);
+        tokens.push(Token {
+            text: value.to_owned(),
+            kind: TokenKind::Semantic,
+        });
+        return;
+    }
+
+    let kind = registry.classify_all(&[run]);
+    if !whitespace && kind.has_intrinsic_shape() {
+        tokens.push(Token {
+            text: run.to_owned(),
+            kind: TokenKind::Semantic,
+        });
+        return;
+    }
+
+    push_lexical_tokens(run, tokens);
+}
+
+fn push_lexical_tokens(run: &str, tokens: &mut Vec<Token>) {
+    let mut start = 0;
+    let mut active_kind = None;
+    for (index, character) in run.char_indices() {
         let kind = token_kind(character);
         if active_kind.is_some_and(|active| active != kind) {
             tokens.push(Token {
-                text: input[start..index].to_owned(),
+                text: run[start..index].to_owned(),
                 kind: active_kind.expect("an active token kind must exist"),
             });
             start = index;
         }
         active_kind = Some(kind);
     }
-
     if let Some(kind) = active_kind {
         tokens.push(Token {
-            text: input[start..].to_owned(),
+            text: run[start..].to_owned(),
             kind,
         });
     }
-
-    tokens
 }
 
 fn token_kind(character: char) -> TokenKind {
@@ -520,5 +572,50 @@ mod tests {
             candidates[0].spec.root,
             PatternNode::Alternation { .. }
         ));
+    }
+
+    #[test]
+    fn preserves_semantic_log_tokens_as_fields() {
+        let candidates = infer(&request(&[
+            "2026-08-27 14:32:17 ERROR 10.0.0.5 request failed",
+            "2026-08-27 14:33:44 WARN 10.0.0.7 request slow",
+        ]))
+        .expect("log inference should succeed");
+        let PatternNode::Sequence { nodes } = &candidates[1].spec.root else {
+            panic!("a sequence was expected");
+        };
+        let kinds = nodes
+            .iter()
+            .filter_map(|node| match node {
+                PatternNode::Field { field } => Some(field.kind),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert!(kinds.contains(&FieldKind::DateIso));
+        assert!(kinds.contains(&FieldKind::Time));
+        assert!(kinds.contains(&FieldKind::Ipv4));
+    }
+
+    #[test]
+    fn preserves_semantic_values_after_logfmt_keys() {
+        let candidates = infer(&request(&[
+            "client_ip=10.0.0.5 path=/api/users",
+            "client_ip=10.0.0.7 path=/api/orders",
+        ]))
+        .expect("logfmt inference should succeed");
+        let PatternNode::Sequence { nodes } = &candidates[1].spec.root else {
+            panic!("a sequence was expected");
+        };
+        let kinds = nodes
+            .iter()
+            .filter_map(|node| match node {
+                PatternNode::Field { field } => Some(field.kind),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert!(kinds.contains(&FieldKind::Ipv4));
+        assert!(kinds.contains(&FieldKind::Path));
     }
 }

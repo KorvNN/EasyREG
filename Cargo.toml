@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "apps/easyreg-cli",
     "apps/easyreg-server",
+    "crates/easyreg-semantics",
     "crates/easyreg-core",
     "crates/easyreg-detectors",
     "crates/easyreg-dialects",

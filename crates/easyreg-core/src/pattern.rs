@@ -39,7 +39,9 @@ pub enum FieldKind {
     Uuid,
     Email,
     Url,
+    Path,
     DateIso,
+    Time,
     Integer,
     Decimal,
     Hexadecimal,
@@ -56,7 +58,14 @@ impl FieldKind {
     pub const fn has_intrinsic_shape(self) -> bool {
         matches!(
             self,
-            Self::Ipv4 | Self::Ipv6 | Self::Uuid | Self::Email | Self::Url | Self::DateIso
+            Self::Ipv4
+                | Self::Ipv6
+                | Self::Uuid
+                | Self::Email
+                | Self::Url
+                | Self::Path
+                | Self::DateIso
+                | Self::Time
         )
     }
 
@@ -67,7 +76,9 @@ impl FieldKind {
             Self::Uuid => "uuid",
             Self::Email => "email",
             Self::Url => "url",
+            Self::Path => "path",
             Self::DateIso => "date_iso",
+            Self::Time => "time",
             Self::Integer => "integer",
             Self::Decimal => "decimal",
             Self::Hexadecimal => "hexadecimal",
