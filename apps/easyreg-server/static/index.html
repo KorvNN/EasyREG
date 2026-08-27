@@ -39,8 +39,8 @@
           <section class="panel input-panel" aria-labelledby="input-title">
             <div class="panel-heading">
               <div>
-                <p class="step-label">01 · Log girdisi</p>
-                <h2 id="input-title">Log satırlarını yapıştırın</h2>
+                <p class="step-label">01 · Girdi</p>
+                <h2 id="input-title">Log örneklerini ekleyin</h2>
               </div>
             </div>
 
@@ -63,7 +63,7 @@
               <div class="input-divider"><span>veya satırları yapıştırın</span></div>
 
               <label class="field-label" for="positive-examples">
-                <span>İşlenecek loglar <strong>Gerekli</strong></span>
+                <span>Eşleşmesi gereken satırlar <strong>Gerekli</strong></span>
                 <span class="line-count" id="positive-count">0 satır</span>
               </label>
               <textarea
@@ -73,10 +73,10 @@
                 spellcheck="false"
                 required
               ></textarea>
-              <p class="field-help">Aynı olay ailesinden en az 2–3 gerçek log satırı kullanın.</p>
+              <p class="field-help">Aynı biçime ait en az üç gerçek satır kullanmanız önerilir.</p>
 
               <label class="field-label negative-label" for="negative-examples">
-                <span>Reddedilecek loglar <i>İsteğe bağlı</i></span>
+                <span>Eşleşmemesi gereken satırlar <i>İsteğe bağlı</i></span>
                 <span class="line-count" id="negative-count">0 satır</span>
               </label>
               <textarea
@@ -85,25 +85,25 @@
                 rows="5"
                 spellcheck="false"
               ></textarea>
-              <p class="field-help">Benzer görünen fakat bu parser’a ait olmayan satırları ekleyin.</p>
+              <p class="field-help">Benzer görünen fakat başka bir biçime ait satırları ekleyin.</p>
 
               <fieldset class="mode-fieldset">
-                <legend>Eşleşme modu</legend>
+                <legend>Desenin kapsamı</legend>
                 <div class="segmented-control">
                   <label>
                     <input type="radio" name="match_mode" value="full" checked>
-                    <span>Tüm satırı ayrıştır</span>
+                    <span>Satırın tamamı</span>
                   </label>
                   <label>
                     <input type="radio" name="match_mode" value="search">
-                    <span>Satır içinde bul</span>
+                    <span>Satırın bir bölümü</span>
                   </label>
                 </div>
               </fieldset>
 
               <div class="form-error" id="form-error" role="alert" hidden></div>
               <button class="primary-button" id="analyze-button" type="submit">
-                <span class="button-label">Log parser’ını üret</span>
+                <span class="button-label">Regex ve parser üret</span>
                 <span class="button-arrow" aria-hidden="true">↗</span>
               </button>
             </form>
@@ -112,43 +112,34 @@
           <section class="panel output-panel" aria-labelledby="output-title">
             <div class="panel-heading output-heading">
               <div>
-                <p class="step-label">02 · Parser çıktısı</p>
-                <h2 id="output-title">Alanları ve çıktıyı inceleyin</h2>
+                <p class="step-label">02 · Sonuç</p>
+                <h2 id="output-title">Çıktıyı inceleyin</h2>
               </div>
-              <span class="result-status" id="result-status" aria-live="polite">Hazır</span>
             </div>
 
             <div class="empty-state" id="empty-state">
-              <div class="pattern-orbit" aria-hidden="true">
-                <span></span><span></span><span></span>
-                <code>.*</code>
-              </div>
-              <h3>Log satırları bekleniyor</h3>
-              <p>Girdiyi gönderdiğinizde alan haritası, doğrulama sonuçları ve parser kodu burada görünecek.</p>
+              <h3>Henüz sonuç yok</h3>
+              <p>Analiz tamamlandığında bulunan alanlar, doğrulama sonuçları ve üretilecek kod burada gösterilir.</p>
             </div>
 
             <div id="result-view" hidden>
-              <div class="candidate-tabs" id="candidate-tabs" aria-label="Regex adayları"></div>
+              <div class="candidate-tabs" id="candidate-tabs" aria-label="Genelleştirme seçenekleri"></div>
 
-              <div class="metrics" aria-label="Aday metrikleri">
+              <div class="metrics" aria-label="Doğrulama oranları">
                 <div class="metric">
-                  <span>Puan</span>
-                  <strong id="score-metric">—</strong>
-                </div>
-                <div class="metric">
-                  <span>Pozitif kapsam</span>
+                  <span>Beklenen satırlar</span>
                   <strong id="coverage-metric">—</strong>
                 </div>
                 <div class="metric">
-                  <span>Negatif ret</span>
+                  <span>Reddedilen satırlar</span>
                   <strong id="rejection-metric">—</strong>
                 </div>
               </div>
 
               <section class="semantic-section" id="semantic-section" aria-labelledby="semantic-title">
                 <div class="section-heading">
-                  <h3 id="semantic-title">Alan haritası</h3>
-                  <span class="semantic-badge" id="semantic-badge">Motor çıkarımı</span>
+                  <h3 id="semantic-title">Çıkarılan alanlar</h3>
+                  <span class="semantic-badge" id="semantic-badge">Yerel</span>
                 </div>
                 <p class="semantic-message" id="semantic-message"></p>
                 <div class="semantic-fields" id="semantic-fields"></div>
