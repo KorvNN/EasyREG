@@ -1,5 +1,5 @@
 <p>
-  <img src="apps/easyreg-server/static/easyreg-icon.svg" alt="EasyREG" width="96" align="left">
+  <img src="static/easyreg-icon.svg" alt="EasyREG" width="96" align="left">
 </p>
 
 # EasyREG<br><sup><sup><em>"From real log lines to tested parsers."</em></sup></sup>
@@ -25,7 +25,7 @@ exports validated regex and parser code.
 The repository pins its Rust toolchain in `rust-toolchain.toml`.
 
 ```bash
-cargo run -p easyreg-server
+cargo run
 
 # Open http://127.0.0.1:3000
 ```
@@ -34,23 +34,6 @@ Paste log lines into the workspace or drop a UTF-8 `.log`, `.txt`, `.json`,
 `.jsonl`, or `.ndjson` file onto it. Large files are read as a stream in the
 browser; EasyREG keeps a bounded, varied sample instead of loading the complete
 file into memory.
-
-## CLI
-
-```bash
-cargo run -p easyreg-cli -- infer \
-  -p 'INV-2026-00127' \
-  -p 'INV-2025-84621' \
-  -p 'INV-2026-18342' \
-  -n 'ORD-2026-00127' \
-  -n 'INV-26-127' \
-  -n 'INV-2026-ABCDE'
-```
-
-The result is machine-readable JSON containing the inferred candidates, rendered
-expressions, validation results, captured values, scores, and recommendation.
-Use `--mode search` to find a pattern within the input or `--compact` for
-single-line JSON.
 
 ## How it works
 
@@ -74,19 +57,8 @@ field names before returning the result.
 | `easyreg-dialects` | JavaScript, Python, and PCRE2 rendering |
 | `easyreg-validation` | Match and capture validation |
 | `easyreg-engine` | Candidate generation, scoring, and recommendation |
-| `easyreg-cli` | Command-line interface |
-| `easyreg-server` | HTTP API and embedded web workspace |
+| `easyreg` | HTTP API and embedded web workspace |
 
-## Development
+## License
 
-Run formatting, Clippy, the complete Rust test suite, and the web JavaScript
-syntax check with one command:
-
-```bash
-./scripts/check.sh
-```
-
-The versioned corpus in `tests/corpus/` covers distinct log families, close
-negative examples, expected semantic rules, and expected capture values. Its
-end-to-end harness requires 100% positive coverage and 100% negative rejection
-from the recommended expression.
+MIT License. See [LICENSE](LICENSE).

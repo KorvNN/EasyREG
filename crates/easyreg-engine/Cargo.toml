@@ -12,9 +12,5 @@ easyreg-inference = { path = "../easyreg-inference" }
 easyreg-validation = { path = "../easyreg-validation" }
 thiserror.workspace = true
 
-[dev-dependencies]
-serde.workspace = true
-serde_json.workspace = true
-
 [lints]
 workspace = true

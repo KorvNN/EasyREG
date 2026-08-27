@@ -169,28 +169,26 @@ fn score(
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::PathBuf};
-
     use easyreg_core::{MatchMode, NoteCode, PatternNode};
-    use serde::Deserialize;
 
     use super::*;
 
-    #[derive(Debug, Deserialize)]
-    struct GoldenCase {
-        request: AnalyzeRequest,
-        expected_balanced_javascript: String,
-    }
-
     #[test]
     fn passes_the_invoice_id_golden_case() {
-        let path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/invoice_ids.json");
-        let contents = fs::read_to_string(path).expect("golden case should be readable");
-        let case: GoldenCase =
-            serde_json::from_str(&contents).expect("golden case should be valid JSON");
-
-        let result = analyze(&case.request).expect("analysis should succeed");
+        let request = AnalyzeRequest {
+            positive_examples: vec![
+                "INV-2026-00127".to_owned(),
+                "INV-2025-84621".to_owned(),
+                "INV-2026-18342".to_owned(),
+            ],
+            negative_examples: vec![
+                "ORD-2026-00127".to_owned(),
+                "INV-26-127".to_owned(),
+                "INV-2026-ABCDE".to_owned(),
+            ],
+            match_mode: MatchMode::Full,
+        };
+        let result = analyze(&request).expect("analysis should succeed");
         let balanced = result
             .candidates
             .iter()
@@ -201,7 +199,7 @@ mod tests {
         assert!((balanced.validation.negative_rejection - 1.0).abs() < f64::EPSILON);
         assert_eq!(
             balanced.renderings[&Dialect::JavaScript],
-            case.expected_balanced_javascript
+            "^(?:INV-(?<field_1>[0-9]{4})-(?<field_2>[0-9]{5}))$"
         );
         assert_eq!(
             result.recommended_strategy,
