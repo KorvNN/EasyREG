@@ -50,7 +50,7 @@ input:focus-visible {
   width: min(1520px, 100%);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 0 42px 30px;
+  padding: 0 42px 42px;
 }
 
 .site-header {
@@ -76,42 +76,8 @@ input:focus-visible {
   display: grid;
   width: 36px;
   height: 36px;
-  place-items: center;
-  border-radius: 10px;
-  color: #f7ffe2;
-  background: var(--accent);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.82rem;
 }
 
-.engine-status {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #43a56f;
-  box-shadow: 0 0 0 5px rgb(67 165 111 / 13%);
-}
-
-.hero {
-  display: grid;
-  grid-template-columns: minmax(300px, 1.2fr) minmax(280px, 0.8fr);
-  gap: 80px;
-  align-items: end;
-  padding: 74px 2px 54px;
-}
-
-.eyebrow,
 .step-label {
   margin: 0 0 13px;
   color: var(--accent);
@@ -119,28 +85,6 @@ input:focus-visible {
   font-weight: 800;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-}
-
-.hero h1 {
-  margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(3.2rem, 6vw, 6.7rem);
-  font-weight: 500;
-  letter-spacing: -0.062em;
-  line-height: 0.88;
-}
-
-.hero h1 em {
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.hero-copy {
-  max-width: 570px;
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-size: clamp(1rem, 1.5vw, 1.22rem);
-  line-height: 1.72;
 }
 
 .workspace {
@@ -151,6 +95,7 @@ input:focus-visible {
   border-radius: 24px;
   background: var(--panel);
   box-shadow: var(--shadow);
+  margin-top: 32px;
 }
 
 .panel {
@@ -454,21 +399,9 @@ textarea::placeholder {
   min-height: 680px;
 }
 
-.result-status {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 10px;
-  color: var(--muted);
-  background: #f7f7f2;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .empty-state {
   display: grid;
-  min-height: 480px;
+  min-height: 360px;
   place-items: center;
   align-content: center;
   padding: 42px;
@@ -476,7 +409,7 @@ textarea::placeholder {
 }
 
 .empty-state h3 {
-  margin: 24px 0 8px;
+  margin: 0 0 8px;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1.45rem;
   font-weight: 500;
@@ -489,46 +422,6 @@ textarea::placeholder {
   font-size: 0.88rem;
   line-height: 1.65;
 }
-
-.pattern-orbit {
-  position: relative;
-  display: grid;
-  width: 128px;
-  height: 128px;
-  place-items: center;
-  border: 1px dashed #aebbb2;
-  border-radius: 50%;
-  background: rgb(228 240 233 / 45%);
-}
-
-.pattern-orbit::before {
-  position: absolute;
-  width: 82px;
-  height: 82px;
-  border: 1px solid #cfd8d1;
-  border-radius: 50%;
-  content: "";
-}
-
-.pattern-orbit code {
-  z-index: 1;
-  color: var(--accent);
-  font-size: 1.35rem;
-  font-weight: 800;
-}
-
-.pattern-orbit span {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  border: 2px solid var(--panel);
-  border-radius: 50%;
-  background: var(--accent-bright);
-}
-
-.pattern-orbit span:nth-child(1) { top: 8px; left: 58px; }
-.pattern-orbit span:nth-child(2) { right: 13px; bottom: 25px; }
-.pattern-orbit span:nth-child(3) { bottom: 22px; left: 14px; }
 
 .candidate-tabs {
   display: grid;
@@ -860,14 +753,6 @@ pre code {
   line-height: 1.45;
 }
 
-footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 24px 4px 0;
-  color: var(--muted);
-  font-size: 0.68rem;
-}
-
 [hidden] {
   display: none !important;
 }
@@ -875,10 +760,6 @@ footer {
 @media (max-width: 1040px) {
   .page-shell {
     padding-inline: 24px;
-  }
-
-  .hero {
-    gap: 35px;
   }
 
   .workspace {
@@ -898,23 +779,6 @@ footer {
 
   .site-header {
     min-height: 68px;
-  }
-
-  .engine-status {
-    font-size: 0;
-  }
-
-  .hero {
-    display: block;
-    padding: 48px 2px 38px;
-  }
-
-  .hero h1 {
-    font-size: clamp(3rem, 15vw, 4.6rem);
-  }
-
-  .hero-copy {
-    margin-top: 25px;
   }
 
   .workspace {
@@ -962,10 +826,6 @@ footer {
     flex-wrap: wrap;
   }
 
-  footer {
-    display: grid;
-    gap: 7px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
